@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python example_usage.py:*)",
+      "Bash(python -m ra_stress_tool.cli:*)",
+      "Bash(pip install:*)",
+      "Bash(streamlit run:*)",
+      "Bash(timeout:*)"
+    ]
+  }
+}
