@@ -412,7 +412,7 @@ with st.sidebar:
                               help="Show all building block inputs (population growth, productivity, etc.)")
 
     # Reset button
-    if st.button("🔄 Reset to Defaults", use_container_width=True):
+    if st.button("🔄 Reset to Defaults"):
         for key in list(st.session_state.keys()):
             if key not in ['overrides']:
                 del st.session_state[key]

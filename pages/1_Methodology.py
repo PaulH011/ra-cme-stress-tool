@@ -685,7 +685,7 @@ macro_data = {
     ]
 }
 
-st.dataframe(macro_data, use_container_width=True, hide_index=True)
+st.dataframe(macro_data, hide_index=True)
 
 # Bond Inputs
 st.markdown("### 🏦 Bond Inputs")
@@ -713,7 +713,7 @@ bond_data = {
     ]
 }
 
-st.dataframe(bond_data, use_container_width=True, hide_index=True)
+st.dataframe(bond_data, hide_index=True)
 
 # Equity Inputs
 st.markdown("### 📈 Equity Inputs")
@@ -737,7 +737,7 @@ equity_data = {
     ]
 }
 
-st.dataframe(equity_data, use_container_width=True, hide_index=True)
+st.dataframe(equity_data, hide_index=True)
 
 # Hedge Fund Inputs
 st.markdown("### 🎯 Absolute Return (Hedge Fund) Inputs")
@@ -757,7 +757,7 @@ hf_data = {
     ]
 }
 
-st.dataframe(hf_data, use_container_width=True, hide_index=True)
+st.dataframe(hf_data, hide_index=True)
 
 # =============================================================================
 # EWMA METHODOLOGY
