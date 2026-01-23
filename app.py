@@ -311,13 +311,8 @@ MODEL_FORMULAS = {
 # Header
 st.markdown('<p class="main-header">Research Affiliates CME Stress Testing Tool</p>', unsafe_allow_html=True)
 
-# Sub-header with methodology link
-col_sub1, col_sub2 = st.columns([4, 1])
-with col_sub1:
-    st.markdown('<p class="sub-header">Adjust assumptions to see how expected returns change across asset classes</p>', unsafe_allow_html=True)
-with col_sub2:
-    if st.button("📚 Methodology Guide"):
-        st.switch_page("pages/1_Methodology.py")
+# Sub-header
+st.markdown('<p class="sub-header">Adjust assumptions to see how expected returns change across asset classes. See the <strong>Methodology</strong> page in the sidebar for calculation details.</p>', unsafe_allow_html=True)
 
 # Initialize session state for overrides
 if 'overrides' not in st.session_state:
@@ -1017,13 +1012,10 @@ st.markdown("""
 
 # Footer
 st.markdown("---")
-col_f1, col_f2, col_f3 = st.columns([1, 2, 1])
-with col_f2:
-    st.markdown("""
-    <div style="text-align: center; color: #666; font-size: 0.85rem;">
-        Research Affiliates CME Methodology Replication Tool<br/>
-        Toggle "Advanced Mode" in sidebar for building block inputs
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("📚 View Full Methodology Documentation", use_container_width=True):
-        st.switch_page("pages/1_Methodology.py")
+st.markdown("""
+<div style="text-align: center; color: #666; font-size: 0.85rem;">
+    Research Affiliates CME Methodology Replication Tool<br/>
+    Toggle "Advanced Mode" in sidebar for building block inputs<br/>
+    📚 See <strong>Methodology</strong> page in sidebar for full calculation documentation
+</div>
+""", unsafe_allow_html=True)
