@@ -5,8 +5,9 @@ Run with: streamlit run app.py
 """
 
 import streamlit as st
+import plotly.graph_objects as go
 from ra_stress_tool.main import CMEEngine
-from ra_stress_tool.config import AssetClass
+from ra_stress_tool.config import AssetClass, EXPECTED_VOLATILITY
 
 # Page configuration
 st.set_page_config(
@@ -1035,6 +1036,109 @@ if base_currency == "EUR":
                         <span style="font-size: 0.75rem; color: #666;">Carry: {carry:+.2f}% | PPP: {ppp:+.2f}%</span>
                     </div>
                     """, unsafe_allow_html=True)
+
+# Risk-Return Scatter Plot
+st.divider()
+st.markdown('<p class="section-header">Risk-Return Profile</p>', unsafe_allow_html=True)
+
+# Prepare data for scatter plot
+scatter_data = []
+asset_categories = {
+    'liquidity': ('Liquidity', '#6c757d', 'Liquidity'),
+    'bonds_global': ('Bonds Global', '#1E88E5', 'Bonds'),
+    'bonds_hy': ('Bonds HY', '#1565C0', 'Bonds'),
+    'bonds_em': ('Bonds EM', '#0D47A1', 'Bonds'),
+    'equity_us': ('Equity US', '#E53935', 'Equities'),
+    'equity_europe': ('Equity Europe', '#C62828', 'Equities'),
+    'equity_japan': ('Equity Japan', '#B71C1C', 'Equities'),
+    'equity_em': ('Equity EM', '#D32F2F', 'Equities'),
+    'absolute_return': ('Absolute Return', '#43A047', 'Alternatives'),
+}
+
+for key, name, icon in asset_order:
+    result = results.results[key]
+    asset_enum = AssetClass(key)
+    
+    nominal_return = result.expected_return_nominal * 100
+    volatility = EXPECTED_VOLATILITY.get(asset_enum, 0.10) * 100
+    
+    display_name, color, category = asset_categories.get(key, (name, '#666', 'Other'))
+    
+    scatter_data.append({
+        'name': display_name,
+        'return': nominal_return,
+        'volatility': volatility,
+        'color': color,
+        'category': category,
+    })
+
+# Create Plotly scatter plot
+fig = go.Figure()
+
+# Group by category for legend
+categories_added = set()
+category_colors = {
+    'Liquidity': '#6c757d',
+    'Bonds': '#1E88E5',
+    'Equities': '#E53935',
+    'Alternatives': '#43A047',
+}
+
+for item in scatter_data:
+    show_legend = item['category'] not in categories_added
+    categories_added.add(item['category'])
+    
+    fig.add_trace(go.Scatter(
+        x=[item['volatility']],
+        y=[item['return']],
+        mode='markers+text',
+        name=item['category'] if show_legend else None,
+        text=[item['name']],
+        textposition='top center',
+        textfont=dict(size=10, color='#333'),
+        marker=dict(
+            size=14,
+            color=item['color'],
+            line=dict(width=1, color='white'),
+        ),
+        hovertemplate=f"<b>{item['name']}</b><br>" +
+                      f"Expected Return: {item['return']:.2f}%<br>" +
+                      f"Expected Volatility: {item['volatility']:.1f}%<br>" +
+                      "<extra></extra>",
+        legendgroup=item['category'],
+        showlegend=show_legend,
+    ))
+
+# Update layout
+fig.update_layout(
+    xaxis_title="Expected Volatility (%)",
+    yaxis_title="Expected Return (%)",
+    xaxis=dict(
+        tickformat='.0f',
+        ticksuffix='%',
+        gridcolor='#e0e0e0',
+        range=[0, max(item['volatility'] for item in scatter_data) * 1.15],
+    ),
+    yaxis=dict(
+        tickformat='.1f',
+        ticksuffix='%',
+        gridcolor='#e0e0e0',
+    ),
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    height=450,
+    margin=dict(l=60, r=40, t=40, b=60),
+    legend=dict(
+        orientation='h',
+        yanchor='bottom',
+        y=1.02,
+        xanchor='center',
+        x=0.5,
+    ),
+    hovermode='closest',
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # Active overrides display
 if overrides:

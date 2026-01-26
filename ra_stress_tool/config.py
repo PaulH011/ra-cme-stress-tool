@@ -322,6 +322,23 @@ CURRENCY_TO_MACRO_REGION = {
 }
 
 
+# =============================================================================
+# Expected Volatility (Long-term historical estimates)
+# =============================================================================
+
+EXPECTED_VOLATILITY = {
+    AssetClass.LIQUIDITY: 0.01,          # 1% - Cash/T-Bills
+    AssetClass.BONDS_GLOBAL: 0.06,       # 6% - Global Gov Bonds
+    AssetClass.BONDS_HY: 0.10,           # 10% - High Yield
+    AssetClass.BONDS_EM: 0.12,           # 12% - EM Hard Currency
+    AssetClass.EQUITY_US: 0.16,          # 16% - US Equities
+    AssetClass.EQUITY_EUROPE: 0.18,      # 18% - Europe Equities
+    AssetClass.EQUITY_JAPAN: 0.18,       # 18% - Japan Equities
+    AssetClass.EQUITY_EM: 0.24,          # 24% - EM Equities
+    AssetClass.ABSOLUTE_RETURN: 0.08,    # 8% - Hedge Funds
+}
+
+
 def get_config_value(config_dict: Dict[str, Any], *keys, default=None):
     """
     Safely get a nested configuration value.
