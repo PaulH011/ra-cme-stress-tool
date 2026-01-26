@@ -21,7 +21,9 @@ SCENARIOS_FILE = 'scenarios.json'
 def load_scenarios():
     """Load saved scenarios from JSON file."""
     try:
-        with open(SCENARIOS_FILE, 'r') as f:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(script_dir, SCENARIOS_FILE)
+        with open(file_path, 'r') as f:
             return json.load(f).get('scenarios', {})
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
@@ -36,10 +38,14 @@ def save_scenario(name, overrides, base_currency):
         'overrides': overrides
     }
     try:
-        with open(SCENARIOS_FILE, 'w') as f:
+        # Get the directory of the current script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(script_dir, SCENARIOS_FILE)
+        with open(file_path, 'w') as f:
             json.dump({'scenarios': scenarios}, f, indent=2)
         return True
     except Exception as e:
+        print(f"Error saving scenario: {e}")  # For debugging
         return False
 
 def delete_scenario(name):
@@ -48,7 +54,9 @@ def delete_scenario(name):
     if name in scenarios:
         del scenarios[name]
         try:
-            with open(SCENARIOS_FILE, 'w') as f:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            file_path = os.path.join(script_dir, SCENARIOS_FILE)
+            with open(file_path, 'w') as f:
                 json.dump({'scenarios': scenarios}, f, indent=2)
             return True
         except Exception:
@@ -1040,17 +1048,18 @@ overrides = build_overrides()
 if 'pending_save_scenario' in st.session_state:
     scenario_name = st.session_state['pending_save_scenario']
     del st.session_state['pending_save_scenario']
-    if overrides:
-        if save_scenario(scenario_name, overrides, base_currency):
-            st.sidebar.success(f"Saved '{scenario_name}' with {len(overrides)} override group(s)")
+    
+    # Debug: show what we're trying to save
+    override_count = len(overrides) if overrides else 0
+    
+    if save_scenario(scenario_name, overrides, base_currency):
+        if overrides:
+            st.toast(f"✅ Saved '{scenario_name}' with {override_count} override group(s)", icon="✅")
         else:
-            st.sidebar.error("Failed to save scenario (filesystem may be read-only)")
+            st.toast(f"⚠️ Saved '{scenario_name}' (no changes from defaults)", icon="⚠️")
     else:
-        # Save with empty overrides (just base currency)
-        if save_scenario(scenario_name, {}, base_currency):
-            st.sidebar.warning(f"Saved '{scenario_name}' (no changes from defaults)")
-        else:
-            st.sidebar.error("Failed to save scenario")
+        st.toast(f"❌ Failed to save - filesystem may be read-only", icon="❌")
+        st.error(f"Failed to save scenario '{scenario_name}'. On Streamlit Cloud, saving is not supported.")
 
 base_ccy = base_currency.lower()  # 'usd' or 'eur'
 engine = CMEEngine(overrides if overrides else None, base_currency=base_ccy)
