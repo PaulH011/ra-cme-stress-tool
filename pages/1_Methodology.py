@@ -1,5 +1,5 @@
 """
-Methodology Page - Comprehensive documentation of the RA CME calculation methodology.
+Methodology Page - Comprehensive documentation of the Parkview CMA calculation methodology.
 
 This page serves as a help/reference guide for users to understand:
 1. How each expected return is calculated
@@ -105,8 +105,8 @@ st.markdown("""
 # Header
 st.markdown('<p class="main-header">📚 Methodology Reference Guide</p>', unsafe_allow_html=True)
 st.markdown("""
-This guide documents the complete calculation methodology used in the Research Affiliates 
-Capital Market Expectations (CME) stress testing tool. Use this reference to understand 
+This guide documents the complete calculation methodology used in the Parkview 
+Capital Market Assumptions (CMA) tool. Use this reference to understand 
 how expected returns are calculated and what each input assumption means.
 """)
 
@@ -136,7 +136,7 @@ st.sidebar.markdown("""
 st.markdown('<p class="section-header" id="overview">Overview</p>', unsafe_allow_html=True)
 
 st.markdown("""
-The Research Affiliates CME methodology produces 10-year expected returns for major asset classes. 
+The Parkview CMA methodology produces 10-year expected returns for major asset classes. 
 The methodology is built on several key principles:
 
 1. **Building Block Approach**: Returns are decomposed into fundamental components (yield, growth, valuation changes, etc.)
@@ -1003,9 +1003,7 @@ with st.expander("How often should default values be updated?"):
 st.divider()
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 0.9rem;">
-    <strong>Research Affiliates CME Methodology Reference</strong><br/>
-    This documentation is for educational purposes. The methodology is based on publicly available 
-    Research Affiliates materials and may not reflect their current proprietary models.<br/><br/>
+    <strong>Parkview CMA Methodology Reference</strong><br/>
     <em>Return to the main tool to run stress tests.</em>
 </div>
 """, unsafe_allow_html=True)

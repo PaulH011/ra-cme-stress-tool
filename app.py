@@ -1,5 +1,5 @@
 """
-Streamlit Frontend for RA CME Stress Testing Tool
+Streamlit Frontend for Parkview CMA Tool
 
 Run with: streamlit run app.py
 """
@@ -10,7 +10,7 @@ from ra_stress_tool.config import AssetClass
 
 # Page configuration
 st.set_page_config(
-    page_title="RA CME Stress Testing Tool",
+    page_title="Parkview CMA Tool",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -322,11 +322,13 @@ MODEL_FORMULAS = {
     }
 }
 
-# Header
-st.markdown('<p class="main-header">Research Affiliates CME Stress Testing Tool</p>', unsafe_allow_html=True)
-
-# Sub-header
-st.markdown('<p class="sub-header">Adjust assumptions to see how expected returns change across asset classes. See the <strong>Methodology</strong> page in the sidebar for calculation details.</p>', unsafe_allow_html=True)
+# Header with logo
+col_logo, col_title = st.columns([1, 5])
+with col_logo:
+    st.image("assets/parkview_logo.png", width=180)
+with col_title:
+    st.markdown('<p class="main-header">Parkview CMA Tool</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Adjust assumptions to see how expected returns change across asset classes. See the <strong>Methodology</strong> page in the sidebar for calculation details.</p>', unsafe_allow_html=True)
 
 # Initialize session state for overrides
 if 'overrides' not in st.session_state:
@@ -1082,7 +1084,7 @@ base_ccy_label = "EUR" if base_currency == "EUR" else "USD"
 fx_note = " | FX adjustments applied using PPP methodology" if base_currency == "EUR" else ""
 st.markdown(f"""
 <div style="text-align: center; color: #666; font-size: 0.85rem;">
-    Research Affiliates CME Methodology Replication Tool<br/>
+    Parkview CMA Tool<br/>
     <strong>Base Currency: {base_ccy_label}</strong>{fx_note}<br/>
     Toggle "Advanced Mode" in sidebar for building block inputs
 </div>
