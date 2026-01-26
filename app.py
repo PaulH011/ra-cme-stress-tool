@@ -172,15 +172,16 @@ def apply_scenario_to_session(scenario_data):
     """Apply a saved scenario's overrides to session state."""
     overrides = scenario_data.get('overrides', {})
     
-    # Clear existing session state (except essential keys)
-    keys_to_keep = {'base_currency_toggle', 'selected_scenario', 'selected_scenario_dropdown'}
-    for key in list(st.session_state.keys()):
-        if key not in keys_to_keep:
-            del st.session_state[key]
+    # Clear existing override keys (not widget keys that are already rendered)
+    # We can't modify widget keys after they're rendered, so we only clear our custom keys
+    keys_to_clear = [k for k in st.session_state.keys() 
+                     if k.startswith(('macro_', 'bonds_', 'equity_', 'absolute_return_'))
+                     and k not in ['base_currency_toggle', 'selected_scenario_dropdown']]
+    for key in keys_to_clear:
+        del st.session_state[key]
     
-    # Set base currency
-    if 'base_currency' in scenario_data:
-        st.session_state['base_currency_toggle'] = scenario_data['base_currency']
+    # Note: base_currency cannot be changed after widget renders
+    # User should manually switch if needed
     
     # Apply macro overrides
     if 'macro' in overrides:
