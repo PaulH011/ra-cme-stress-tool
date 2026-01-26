@@ -13,8 +13,9 @@ from .models.macro import MacroModel, compute_global_rgdp_growth
 from .models.bonds import GovernmentBondModel, HighYieldBondModel, EMBondModel
 from .models.equities import EquityModel, EquityRegion
 from .models.alternatives import HedgeFundModel
+from .models.currency import FXModel
 from .output import CMEResults, AssetClassResult, format_results_table, format_comparison_table
-from .config import AssetClass
+from .config import AssetClass, BaseCurrency, ASSET_LOCAL_CURRENCY, CURRENCY_TO_MACRO_REGION
 
 
 class CMEEngine:
@@ -39,7 +40,7 @@ class CMEEngine:
         AssetClass.ABSOLUTE_RETURN: "Absolute Return (HF)",
     }
 
-    def __init__(self, overrides: Optional[Dict[str, Any]] = None):
+    def __init__(self, overrides: Optional[Dict[str, Any]] = None, base_currency: str = 'usd'):
         """
         Initialize the CME engine.
 
@@ -47,8 +48,11 @@ class CMEEngine:
         ----------
         overrides : dict, optional
             User override dictionary. See OverrideManager for structure.
+        base_currency : str, optional
+            Base currency for return calculations ('usd' or 'eur'). Default is 'usd'.
         """
         self.override_manager = OverrideManager(overrides)
+        self.base_currency = BaseCurrency(base_currency.lower())
 
         # Initialize models
         self.macro_model = MacroModel(self.override_manager)
@@ -57,6 +61,7 @@ class CMEEngine:
         self.hy_bond_model = HighYieldBondModel(self.override_manager)
         self.em_bond_model = EMBondModel(self.override_manager)
         self.hf_model = HedgeFundModel(self.override_manager)
+        self.fx_model = FXModel(self.override_manager)
 
         # Cache for computed macro values
         self._macro_cache: Dict[str, Any] = {}
@@ -77,6 +82,139 @@ class CMEEngine:
         """Clear all overrides and reset to defaults."""
         self.override_manager.clear_overrides()
         self._macro_cache.clear()
+
+    def _get_base_currency_region(self) -> str:
+        """Get the macro region for the base currency."""
+        if self.base_currency == BaseCurrency.EUR:
+            return 'eurozone'
+        return 'us'
+
+    def _get_fx_adjustment(self, asset_class: AssetClass) -> Dict[str, Any]:
+        """
+        Calculate FX adjustment for an asset class based on base currency.
+
+        Parameters
+        ----------
+        asset_class : AssetClass
+            The asset class to calculate FX adjustment for.
+
+        Returns
+        -------
+        dict
+            FX adjustment details with 'fx_return' and 'components'.
+        """
+        local_currency = ASSET_LOCAL_CURRENCY.get(asset_class, 'usd')
+
+        # Handle 'base' currency assets (Liquidity, Absolute Return)
+        # These use the base currency directly, no FX adjustment needed
+        if local_currency == 'base':
+            return {'fx_return': 0.0, 'components': {}, 'needs_adjustment': False}
+
+        # Determine base currency string
+        base_ccy = 'eur' if self.base_currency == BaseCurrency.EUR else 'usd'
+
+        # No adjustment if asset is already in base currency
+        if local_currency == base_ccy:
+            return {'fx_return': 0.0, 'components': {}, 'needs_adjustment': False}
+
+        # Get macro forecasts for FX calculation
+        macro = self.compute_macro_forecasts()
+
+        # Calculate FX adjustment using the FX model
+        fx_result = self.fx_model.get_fx_adjustment_for_asset(
+            home_currency=base_ccy,
+            asset_local_currency=local_currency,
+            macro_forecasts=macro
+        )
+
+        return {
+            'fx_return': fx_result['fx_return'],
+            'components': fx_result.get('components', {}),
+            'needs_adjustment': fx_result['needs_adjustment']
+        }
+
+    def _apply_fx_to_result(
+        self,
+        result: AssetClassResult,
+        asset_class: AssetClass
+    ) -> AssetClassResult:
+        """
+        Apply FX adjustment to an asset class result.
+
+        Parameters
+        ----------
+        result : AssetClassResult
+            The original asset class result in local currency.
+        asset_class : AssetClass
+            The asset class enum.
+
+        Returns
+        -------
+        AssetClassResult
+            The result adjusted for FX if applicable.
+        """
+        fx_adj = self._get_fx_adjustment(asset_class)
+
+        if not fx_adj['needs_adjustment'] or fx_adj['fx_return'] == 0.0:
+            return result
+
+        # Add FX component to returns
+        new_nominal = result.expected_return_nominal + fx_adj['fx_return']
+        new_real = result.expected_return_real + fx_adj['fx_return']
+
+        # Add FX to components
+        new_components = dict(result.components)
+        new_components['fx_return'] = fx_adj['fx_return']
+
+        # Add FX inputs to tracking
+        new_inputs = dict(result.inputs_used)
+        fx_comps = fx_adj.get('components', {})
+        if fx_comps:
+            new_inputs['fx_home_tbill'] = {'value': fx_comps.get('home_tbill', 0), 'source': 'computed'}
+            new_inputs['fx_foreign_tbill'] = {'value': fx_comps.get('foreign_tbill', 0), 'source': 'computed'}
+            new_inputs['fx_home_inflation'] = {'value': fx_comps.get('home_inflation', 0), 'source': 'computed'}
+            new_inputs['fx_foreign_inflation'] = {'value': fx_comps.get('foreign_inflation', 0), 'source': 'computed'}
+            new_inputs['fx_carry_component'] = {'value': fx_comps.get('carry_component', 0), 'source': 'computed'}
+            new_inputs['fx_ppp_component'] = {'value': fx_comps.get('ppp_component', 0), 'source': 'computed'}
+
+        return AssetClassResult(
+            asset_class=result.asset_class,
+            expected_return_nominal=new_nominal,
+            expected_return_real=new_real,
+            components=new_components,
+            inputs_used=new_inputs,
+        )
+
+    def compute_fx_forecasts(self) -> Dict[str, Dict[str, float]]:
+        """
+        Compute FX forecasts for all major currency pairs relative to base currency.
+
+        Returns
+        -------
+        dict
+            FX forecasts by foreign currency.
+        """
+        if self.base_currency == BaseCurrency.USD:
+            return {}  # No FX forecasts needed for USD base
+
+        macro = self.compute_macro_forecasts()
+        base_ccy = 'eur' if self.base_currency == BaseCurrency.EUR else 'usd'
+
+        fx_forecasts = {}
+        for foreign_ccy in ['usd', 'jpy', 'em']:
+            if foreign_ccy != base_ccy:
+                fx_result = self.fx_model.get_fx_adjustment_for_asset(
+                    home_currency=base_ccy,
+                    asset_local_currency=foreign_ccy,
+                    macro_forecasts=macro
+                )
+                fx_forecasts[foreign_ccy] = {
+                    'fx_change': fx_result['fx_return'],
+                    'carry_component': fx_result['components'].get('carry_component', 0),
+                    'ppp_component': fx_result['components'].get('ppp_component', 0),
+                }
+
+        return fx_forecasts
 
     def compute_macro_forecasts(self) -> Dict[str, Any]:
         """
@@ -114,16 +252,21 @@ class CMEEngine:
         """
         Compute expected return for liquidity (cash/T-Bills).
 
+        Uses the base currency region's T-Bill rate.
+
         Returns
         -------
         AssetClassResult
             Liquidity return result.
         """
         macro = self.compute_macro_forecasts()
-        us_macro = macro['us']
 
-        nominal_return = us_macro['tbill_rate']
-        real_return = nominal_return - us_macro['inflation']
+        # Use base currency region
+        base_region = self._get_base_currency_region()
+        region_macro = macro[base_region]
+
+        nominal_return = region_macro['tbill_rate']
+        real_return = nominal_return - region_macro['inflation']
 
         return AssetClassResult(
             asset_class=self.ASSET_NAMES[AssetClass.LIQUIDITY],
@@ -133,8 +276,9 @@ class CMEEngine:
                 'tbill_rate': nominal_return,
             },
             inputs_used={
-                'current_tbill': {'value': us_macro['components']['tbill'].get('current_tbill', nominal_return),
+                'current_tbill': {'value': region_macro['components']['tbill'].get('current_tbill', nominal_return),
                                   'source': 'default'},
+                'base_currency': {'value': self.base_currency.value, 'source': 'computed'},
             },
         )
 
@@ -290,15 +434,21 @@ class CMEEngine:
         """
         Compute expected return for absolute return (hedge funds).
 
+        Uses the base currency region's T-Bill rate as the risk-free rate.
+
         Returns
         -------
         AssetClassResult
             Hedge fund return result.
         """
         macro = self.compute_macro_forecasts()
-        us_macro = macro['us']
 
-        # Get US equity return for market premium calculation
+        # Use base currency region for T-Bill and inflation
+        base_region = self._get_base_currency_region()
+        base_macro = macro[base_region]
+
+        # Still use US equity return for market premium calculation
+        us_macro = macro['us']
         equity_forecast = self.equity_model.compute_return(
             region=EquityRegion.US,
             inflation_forecast=us_macro['inflation'],
@@ -306,10 +456,13 @@ class CMEEngine:
         )
 
         forecast = self.hf_model.compute_return(
-            tbill_forecast=us_macro['tbill_rate'],
-            inflation_forecast=us_macro['inflation'],
+            tbill_forecast=base_macro['tbill_rate'],
+            inflation_forecast=base_macro['inflation'],
             equity_return=equity_forecast.expected_return_nominal,
         )
+
+        inputs_used = self._extract_hf_inputs(forecast)
+        inputs_used['base_currency'] = {'value': self.base_currency.value, 'source': 'computed'}
 
         return AssetClassResult(
             asset_class=self.ASSET_NAMES[AssetClass.ABSOLUTE_RETURN],
@@ -320,7 +473,7 @@ class CMEEngine:
                 'factor_return': forecast.factor_return,
                 'trading_alpha': forecast.trading_alpha,
             },
-            inputs_used=self._extract_hf_inputs(forecast),
+            inputs_used=inputs_used,
         )
 
     def compute_all_returns(self, scenario_name: str = "Base Case") -> CMEResults:
@@ -339,25 +492,40 @@ class CMEEngine:
         """
         results = {}
 
-        # Liquidity
+        # Liquidity (already uses base currency, no FX adjustment needed)
         results[AssetClass.LIQUIDITY.value] = self.compute_liquidity_return()
 
-        # Bonds
-        results[AssetClass.BONDS_GLOBAL.value] = self.compute_bonds_global_return()
-        results[AssetClass.BONDS_HY.value] = self.compute_bonds_hy_return()
-        results[AssetClass.BONDS_EM.value] = self.compute_bonds_em_return()
+        # Bonds - apply FX adjustments
+        bonds_global = self.compute_bonds_global_return()
+        results[AssetClass.BONDS_GLOBAL.value] = self._apply_fx_to_result(
+            bonds_global, AssetClass.BONDS_GLOBAL
+        )
 
-        # Equities
+        bonds_hy = self.compute_bonds_hy_return()
+        results[AssetClass.BONDS_HY.value] = self._apply_fx_to_result(
+            bonds_hy, AssetClass.BONDS_HY
+        )
+
+        bonds_em = self.compute_bonds_em_return()
+        results[AssetClass.BONDS_EM.value] = self._apply_fx_to_result(
+            bonds_em, AssetClass.BONDS_EM
+        )
+
+        # Equities - apply FX adjustments
+        region_to_asset = {
+            EquityRegion.US: AssetClass.EQUITY_US,
+            EquityRegion.EUROPE: AssetClass.EQUITY_EUROPE,
+            EquityRegion.JAPAN: AssetClass.EQUITY_JAPAN,
+            EquityRegion.EM: AssetClass.EQUITY_EM,
+        }
         for region in EquityRegion:
-            region_to_asset = {
-                EquityRegion.US: AssetClass.EQUITY_US,
-                EquityRegion.EUROPE: AssetClass.EQUITY_EUROPE,
-                EquityRegion.JAPAN: AssetClass.EQUITY_JAPAN,
-                EquityRegion.EM: AssetClass.EQUITY_EM,
-            }
-            results[region_to_asset[region].value] = self.compute_equity_return(region)
+            asset_class = region_to_asset[region]
+            equity_result = self.compute_equity_return(region)
+            results[asset_class.value] = self._apply_fx_to_result(
+                equity_result, asset_class
+            )
 
-        # Alternatives
+        # Alternatives (already uses base currency, no FX adjustment needed)
         results[AssetClass.ABSOLUTE_RETURN.value] = self.compute_absolute_return()
 
         # Get macro assumptions
@@ -372,11 +540,16 @@ class CMEEngine:
             if region != 'global'
         }
 
+        # Add FX forecasts if EUR base
+        fx_forecasts = self.compute_fx_forecasts()
+
         return CMEResults(
             scenario_name=scenario_name,
             results=results,
             macro_assumptions=macro_summary,
             overrides_applied=self.override_manager.get_overrides_summary(),
+            base_currency=self.base_currency.value,
+            fx_forecasts=fx_forecasts,
         )
 
     def _extract_bond_inputs(self, forecast) -> Dict[str, Dict[str, Any]]:
@@ -412,7 +585,8 @@ def run_stress_test(
     base_overrides: Optional[Dict[str, Any]] = None,
     stress_overrides: Optional[Dict[str, Any]] = None,
     base_name: str = "RA Defaults",
-    stress_name: str = "Stress Scenario"
+    stress_name: str = "Stress Scenario",
+    base_currency: str = 'usd'
 ) -> tuple:
     """
     Run a stress test comparing base case to stressed scenario.
@@ -427,6 +601,8 @@ def run_stress_test(
         Name for base scenario.
     stress_name : str
         Name for stress scenario.
+    base_currency : str, optional
+        Base currency for return calculations ('usd' or 'eur'). Default is 'usd'.
 
     Returns
     -------
@@ -434,11 +610,11 @@ def run_stress_test(
         (base_results, stress_results, comparison_text)
     """
     # Base case
-    base_engine = CMEEngine(base_overrides)
+    base_engine = CMEEngine(base_overrides, base_currency=base_currency)
     base_results = base_engine.compute_all_returns(base_name)
 
     # Stress case
-    stress_engine = CMEEngine(stress_overrides)
+    stress_engine = CMEEngine(stress_overrides, base_currency=base_currency)
     stress_results = stress_engine.compute_all_returns(stress_name)
 
     # Comparison
@@ -448,7 +624,11 @@ def run_stress_test(
 
 
 # Convenience function for quick calculations
-def quick_cme(overrides: Optional[Dict[str, Any]] = None, print_results: bool = True) -> CMEResults:
+def quick_cme(
+    overrides: Optional[Dict[str, Any]] = None,
+    print_results: bool = True,
+    base_currency: str = 'usd'
+) -> CMEResults:
     """
     Quick calculation of CME with optional overrides.
 
@@ -458,13 +638,15 @@ def quick_cme(overrides: Optional[Dict[str, Any]] = None, print_results: bool = 
         Override dictionary.
     print_results : bool
         Whether to print formatted results.
+    base_currency : str, optional
+        Base currency for return calculations ('usd' or 'eur'). Default is 'usd'.
 
     Returns
     -------
     CMEResults
         The computed results.
     """
-    engine = CMEEngine(overrides)
+    engine = CMEEngine(overrides, base_currency=base_currency)
     results = engine.compute_all_returns(
         "Custom Scenario" if overrides else "RA Defaults"
     )

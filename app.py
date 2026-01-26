@@ -100,12 +100,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# FX formula documentation (shared across asset classes)
+FX_FORMULA = {
+    'formula': 'FX Return = 30% × (Home T-Bill - Foreign T-Bill) + 70% × (Home Inflation - Foreign Inflation)',
+    'sub_formula': 'PPP-based FX forecast; positive means home currency depreciates, adding to foreign asset returns',
+    'inputs': ['home_tbill', 'foreign_tbill', 'home_inflation', 'foreign_inflation']
+}
+
 # Model formulas and descriptions
 MODEL_FORMULAS = {
     'liquidity': {
         'name': 'Liquidity (Cash/T-Bills)',
         'main_formula': 'E[Return] = E[T-Bill Rate]',
-        'description': 'Cash return equals the expected T-Bill rate over the forecast horizon.',
+        'description': 'Cash return equals the expected T-Bill rate over the forecast horizon. Uses base currency T-Bill.',
         'components': {
             'tbill_rate': {
                 'formula': 'E[T-Bill] = 30% × Current T-Bill + 70% × Long-Term T-Bill',
@@ -116,8 +123,8 @@ MODEL_FORMULAS = {
     },
     'bonds_global': {
         'name': 'Bonds Global (Developed Government)',
-        'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses',
-        'description': 'Government bond returns based on yield, roll-down, and term premium mean reversion.',
+        'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses + FX Return',
+        'description': 'Government bond returns based on yield, roll-down, and term premium mean reversion. USD-hedged; FX adjustment applied when EUR base.',
         'components': {
             'yield': {
                 'formula': 'Avg Yield = E[T-Bill] + Avg Term Premium',
@@ -138,13 +145,14 @@ MODEL_FORMULAS = {
                 'formula': 'Credit Loss = 0% (Sovereign default-free)',
                 'sub_formula': 'Developed market government bonds assumed risk-free',
                 'inputs': []
-            }
+            },
+            'fx_return': FX_FORMULA
         }
     },
     'bonds_hy': {
         'name': 'Bonds High Yield',
-        'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses',
-        'description': 'High yield bonds with credit spread and default loss components.',
+        'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses + FX Return',
+        'description': 'High yield bonds with credit spread and default loss components. USD-denominated; FX adjustment applied when EUR base.',
         'components': {
             'yield': {
                 'formula': 'Avg Yield = E[T-Bill] + Avg Term Premium + Credit Spread',
@@ -165,13 +173,14 @@ MODEL_FORMULAS = {
                 'formula': 'Credit Loss = Default Rate × (1 - Recovery Rate)',
                 'sub_formula': 'Annual expected loss from defaults, using historical default and recovery rates',
                 'inputs': ['default_rate', 'recovery_rate']
-            }
+            },
+            'fx_return': FX_FORMULA
         }
     },
     'bonds_em': {
         'name': 'Bonds EM (Local Currency)',
-        'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses',
-        'description': 'Emerging market local currency bonds with EM-specific rates and small credit losses.',
+        'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses + FX Return',
+        'description': 'Emerging market local currency bonds with EM-specific rates and small credit losses. FX adjustment applies for both USD and EUR base.',
         'components': {
             'yield': {
                 'formula': 'Avg Yield = E[EM T-Bill] + Avg Term Premium',
@@ -192,13 +201,14 @@ MODEL_FORMULAS = {
                 'formula': 'Credit Loss = Default Rate × (1 - Recovery Rate)',
                 'sub_formula': 'Low default rate for local currency sovereign debt (0.18% historical)',
                 'inputs': ['default_rate', 'recovery_rate']
-            }
+            },
+            'fx_return': FX_FORMULA
         }
     },
     'equity_us': {
         'name': 'Equity US',
-        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change',
-        'description': 'US equity returns based on dividends, earnings growth, and CAEY mean reversion.',
+        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change + FX Return',
+        'description': 'US equity returns based on dividends, earnings growth, and CAEY mean reversion. FX adjustment applied when EUR base.',
         'components': {
             'dividend_yield': {
                 'formula': 'Dividend Yield = Current Trailing 12-Month Dividend Yield',
@@ -214,13 +224,14 @@ MODEL_FORMULAS = {
                 'formula': 'Valuation = Avg[(Fair CAEY / Current CAEY)^(1/20) - 1] over 10 years',
                 'sub_formula': 'CAEY (1/CAPE) reverts to fair value over 20 years; averaged over forecast horizon',
                 'inputs': ['current_caey', 'fair_caey', 'reversion_years']
-            }
+            },
+            'fx_return': FX_FORMULA
         }
     },
     'equity_europe': {
         'name': 'Equity Europe',
-        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change',
-        'description': 'European equity returns using same methodology as US.',
+        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change + FX Return',
+        'description': 'European equity returns using same methodology as US. No FX adjustment when EUR base (home market); FX adjustment applied when USD base.',
         'components': {
             'dividend_yield': {
                 'formula': 'Dividend Yield = Current Trailing 12-Month Dividend Yield',
@@ -236,13 +247,14 @@ MODEL_FORMULAS = {
                 'formula': 'Valuation = Avg[(Fair CAEY / Current CAEY)^(1/20) - 1] over 10 years',
                 'sub_formula': 'CAEY mean reversion; Europe often closer to fair value than US',
                 'inputs': ['current_caey', 'fair_caey', 'reversion_years']
-            }
+            },
+            'fx_return': FX_FORMULA
         }
     },
     'equity_japan': {
         'name': 'Equity Japan',
-        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change',
-        'description': 'Japanese equity returns with Japan-specific growth assumptions.',
+        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change + FX Return',
+        'description': 'Japanese equity returns with Japan-specific growth assumptions. FX adjustment applies for both USD and EUR base.',
         'components': {
             'dividend_yield': {
                 'formula': 'Dividend Yield = Current Trailing 12-Month Dividend Yield',
@@ -258,13 +270,14 @@ MODEL_FORMULAS = {
                 'formula': 'Valuation = Avg[(Fair CAEY / Current CAEY)^(1/20) - 1] over 10 years',
                 'sub_formula': 'CAEY mean reversion over 20 years',
                 'inputs': ['current_caey', 'fair_caey', 'reversion_years']
-            }
+            },
+            'fx_return': FX_FORMULA
         }
     },
     'equity_em': {
         'name': 'Equity EM',
-        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change',
-        'description': 'Emerging market equity returns with EM-specific assumptions.',
+        'main_formula': 'E[Real Return] = Dividend Yield + Real EPS Growth + Valuation Change + FX Return',
+        'description': 'Emerging market equity returns with EM-specific assumptions. FX adjustment applies for both USD and EUR base.',
         'components': {
             'dividend_yield': {
                 'formula': 'Dividend Yield = Current Trailing 12-Month Dividend Yield',
@@ -280,7 +293,8 @@ MODEL_FORMULAS = {
                 'formula': 'Valuation = Avg[(Fair CAEY / Current CAEY)^(1/20) - 1] over 10 years',
                 'sub_formula': 'EM CAEY averaged with EM regional group for stability',
                 'inputs': ['current_caey', 'fair_caey', 'reversion_years']
-            }
+            },
+            'fx_return': FX_FORMULA
         }
     },
     'absolute_return': {
@@ -405,16 +419,29 @@ def build_overrides():
 
 # Sidebar for inputs
 with st.sidebar:
-    st.header("📝 Input Assumptions")
+    st.header("Settings")
+
+    # Base currency toggle
+    base_currency = st.radio(
+        "Base Currency",
+        options=["USD", "EUR"],
+        horizontal=True,
+        help="Select the currency perspective for all returns. EUR base applies FX adjustments using PPP methodology.",
+        key="base_currency_toggle"
+    )
+
+    st.divider()
+
+    st.header("Input Assumptions")
 
     # Mode toggle
-    advanced_mode = st.toggle("🔬 Advanced Mode", value=False,
+    advanced_mode = st.toggle("Advanced Mode", value=False,
                               help="Show all building block inputs (population growth, productivity, etc.)")
 
     # Reset button
-    if st.button("🔄 Reset to Defaults"):
+    if st.button("Reset to Defaults"):
         for key in list(st.session_state.keys()):
-            if key not in ['overrides']:
+            if key not in ['overrides', 'base_currency_toggle']:
                 del st.session_state[key]
         st.rerun()
 
@@ -768,18 +795,21 @@ with st.sidebar:
 
 # Build overrides and compute results
 overrides = build_overrides()
-engine = CMEEngine(overrides if overrides else None)
+base_ccy = base_currency.lower()  # 'usd' or 'eur'
+engine = CMEEngine(overrides if overrides else None, base_currency=base_ccy)
 results = engine.compute_all_returns("Current Scenario")
 
-# Also compute base case for comparison
-base_engine = CMEEngine(None)
+# Also compute base case for comparison (same base currency)
+base_engine = CMEEngine(None, base_currency=base_ccy)
 base_results = base_engine.compute_all_returns("RA Defaults")
 
 # Main content area
 col_results, col_details = st.columns([2, 3])
 
 with col_results:
-    st.markdown('<p class="section-header">Expected Returns (10-Year)</p>', unsafe_allow_html=True)
+    # Show base currency in header
+    currency_label = "EUR" if base_currency == "EUR" else "USD"
+    st.markdown(f'<p class="section-header">Expected Returns (10-Year, {currency_label} Base)</p>', unsafe_allow_html=True)
 
     asset_order = [
         ('liquidity', 'Liquidity', '💵'),
@@ -811,13 +841,21 @@ with col_results:
             diff_str = f"{diff:.2f}%"
             diff_color = "#dc3545"
 
+        # Check for FX component
+        fx_return = result.components.get('fx_return', 0)
+        fx_str = ""
+        if abs(fx_return) > 0.0001:
+            fx_pct = fx_return * 100
+            fx_color = "#17a2b8" if fx_pct >= 0 else "#fd7e14"
+            fx_str = f'<br/><span style="font-size: 0.75rem; color: {fx_color};">FX: {fx_pct:+.2f}%</span>'
+
         st.markdown(f"""
         <div style="background-color: #f8f9fa; padding: 0.8rem; border-radius: 0.5rem;
                     border-left: 4px solid #1E3A5F; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <span style="font-size: 0.9rem; color: #666;">{icon} {name}</span><br/>
                 <span style="font-size: 1.4rem; font-weight: bold; color: #1E3A5F;">{nominal:.2f}%</span>
-                <span style="font-size: 0.85rem; color: #666;"> (Real: {real:.2f}%)</span>
+                <span style="font-size: 0.85rem; color: #666;"> (Real: {real:.2f}%)</span>{fx_str}
             </div>
             <div style="text-align: right;">
                 <span style="font-size: 0.8rem; color: {diff_color};">vs Default: {diff_str}</span>
@@ -954,7 +992,7 @@ with col_details:
 
 # Macro assumptions display
 st.divider()
-st.markdown('<p class="section-header">📈 10-Year Macro Forecasts (Computed Outputs)</p>', unsafe_allow_html=True)
+st.markdown('<p class="section-header">10-Year Macro Forecasts (Computed Outputs)</p>', unsafe_allow_html=True)
 st.caption("These are the model's computed forecasts based on your inputs. They represent expected average values over the 10-year horizon.")
 
 macro = engine.compute_macro_forecasts()
@@ -971,6 +1009,34 @@ for i, (region_key, region_name) in enumerate(regions):
         st.markdown(f"- E[Inflation]: {region_data['inflation']*100:.2f}%")
         if 'tbill_rate' in region_data:
             st.markdown(f"- E[T-Bill]: {region_data['tbill_rate']*100:.2f}%")
+
+# FX Forecast section (only show when EUR base)
+if base_currency == "EUR":
+    st.markdown("---")
+    st.markdown("**Expected FX Changes (EUR Base, Annual):**")
+    st.caption("Positive means EUR depreciates vs the foreign currency, adding to foreign asset returns in EUR terms.")
+
+    fx_forecasts = results.fx_forecasts
+    if fx_forecasts:
+        fx_cols = st.columns(3)
+        fx_currencies = [('usd', 'USD 🇺🇸'), ('jpy', 'JPY 🇯🇵'), ('em', 'EM 🌍')]
+
+        for i, (ccy_key, ccy_name) in enumerate(fx_currencies):
+            with fx_cols[i]:
+                if ccy_key in fx_forecasts:
+                    fx_data = fx_forecasts[ccy_key]
+                    fx_change = fx_data['fx_change'] * 100
+                    carry = fx_data['carry_component'] * 100
+                    ppp = fx_data['ppp_component'] * 100
+
+                    color = "#28a745" if fx_change >= 0 else "#dc3545"
+                    st.markdown(f"""
+                    <div style="background-color: #e8f4f8; padding: 0.5rem; border-radius: 0.3rem; margin-bottom: 0.3rem;">
+                        <strong>EUR vs {ccy_name}</strong><br/>
+                        <span style="font-size: 1.2rem; color: {color};">{fx_change:+.2f}%/yr</span><br/>
+                        <span style="font-size: 0.75rem; color: #666;">Carry: {carry:+.2f}% | PPP: {ppp:+.2f}%</span>
+                    </div>
+                    """, unsafe_allow_html=True)
 
 # Active overrides display
 if overrides:
@@ -1012,10 +1078,12 @@ st.markdown("""
 
 # Footer
 st.markdown("---")
-st.markdown("""
+base_ccy_label = "EUR" if base_currency == "EUR" else "USD"
+fx_note = " | FX adjustments applied using PPP methodology" if base_currency == "EUR" else ""
+st.markdown(f"""
 <div style="text-align: center; color: #666; font-size: 0.85rem;">
     Research Affiliates CME Methodology Replication Tool<br/>
-    Toggle "Advanced Mode" in sidebar for building block inputs<br/>
-    📚 See <strong>Methodology</strong> page in sidebar for full calculation documentation
+    <strong>Base Currency: {base_ccy_label}</strong>{fx_note}<br/>
+    Toggle "Advanced Mode" in sidebar for building block inputs
 </div>
 """, unsafe_allow_html=True)

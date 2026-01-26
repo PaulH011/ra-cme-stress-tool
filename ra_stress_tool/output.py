@@ -26,6 +26,12 @@ class CMEResults:
     results: Dict[str, AssetClassResult]
     macro_assumptions: Dict[str, Any]
     overrides_applied: Dict[str, Any]
+    base_currency: str = 'usd'
+    fx_forecasts: Dict[str, Dict[str, float]] = None
+
+    def __post_init__(self):
+        if self.fx_forecasts is None:
+            self.fx_forecasts = {}
 
 
 def format_percentage(value: float, decimals: int = 2) -> str:

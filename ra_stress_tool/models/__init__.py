@@ -6,6 +6,7 @@ from .macro import MacroModel
 from .bonds import BondModel, GovernmentBondModel, HighYieldBondModel, EMBondModel
 from .equities import EquityModel
 from .alternatives import HedgeFundModel
+from .currency import FXModel
 
 __all__ = [
     'MacroModel',
@@ -15,4 +16,5 @@ __all__ = [
     'EMBondModel',
     'EquityModel',
     'HedgeFundModel',
+    'FXModel',
 ]

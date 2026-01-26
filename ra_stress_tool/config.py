@@ -20,6 +20,12 @@ class Region(Enum):
     GLOBAL = "global"
 
 
+class BaseCurrency(Enum):
+    """Supported base currencies for return calculations."""
+    USD = "usd"
+    EUR = "eur"
+
+
 class AssetClass(Enum):
     """Supported asset classes."""
     LIQUIDITY = "liquidity"
@@ -288,6 +294,33 @@ DEFAULT_ASSET_DATA = {
 # =============================================================================
 # Helper function to get nested config values
 # =============================================================================
+
+# =============================================================================
+# Currency Configuration for FX Adjustments
+# =============================================================================
+
+# Asset to local currency mapping
+# Defines what currency each asset class is denominated in
+ASSET_LOCAL_CURRENCY = {
+    AssetClass.LIQUIDITY: 'base',       # Uses base currency T-Bill
+    AssetClass.BONDS_GLOBAL: 'usd',     # USD-hedged developed bonds
+    AssetClass.BONDS_HY: 'usd',         # US High Yield
+    AssetClass.BONDS_EM: 'em',          # EM local currency
+    AssetClass.EQUITY_US: 'usd',
+    AssetClass.EQUITY_EUROPE: 'eur',
+    AssetClass.EQUITY_JAPAN: 'jpy',
+    AssetClass.EQUITY_EM: 'em',
+    AssetClass.ABSOLUTE_RETURN: 'base', # Uses base currency T-Bill
+}
+
+# Macro region mapping for FX calculations
+CURRENCY_TO_MACRO_REGION = {
+    'usd': 'us',
+    'eur': 'eurozone',
+    'jpy': 'japan',
+    'em': 'em',
+}
+
 
 def get_config_value(config_dict: Dict[str, Any], *keys, default=None):
     """
