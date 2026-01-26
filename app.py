@@ -60,7 +60,7 @@ def apply_scenario_to_session(scenario_data):
     overrides = scenario_data.get('overrides', {})
     
     # Clear existing session state (except essential keys)
-    keys_to_keep = {'base_currency_toggle', 'selected_scenario'}
+    keys_to_keep = {'base_currency_toggle', 'selected_scenario', 'selected_scenario_dropdown'}
     for key in list(st.session_state.keys()):
         if key not in keys_to_keep:
             del st.session_state[key]
@@ -1374,7 +1374,7 @@ fig.update_layout(
     hovermode='closest',
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig)
 
 # Active overrides display
 if overrides:
