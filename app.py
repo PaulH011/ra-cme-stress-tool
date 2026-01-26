@@ -495,6 +495,16 @@ def build_overrides():
     """Build override dictionary from session state"""
     overrides = {}
 
+    def get_value(session_key):
+        """Get value from session state, handling None and empty cases."""
+        if session_key not in st.session_state:
+            return None
+        val = st.session_state[session_key]
+        # Handle None, empty string, or NaN
+        if val is None or val == '' or (isinstance(val, float) and val != val):
+            return None
+        return val
+
     # Macro overrides (both basic and advanced)
     for region in ['us', 'eurozone', 'japan', 'em']:
         region_overrides = {}
@@ -502,8 +512,9 @@ def build_overrides():
         # Basic macro inputs
         for key in ['inflation_forecast', 'rgdp_growth', 'tbill_forecast']:
             session_key = f"macro_{region}_{key}"
-            if session_key in st.session_state and st.session_state[session_key] is not None:
-                region_overrides[key] = st.session_state[session_key] / 100
+            val = get_value(session_key)
+            if val is not None:
+                region_overrides[key] = val / 100
 
         # Advanced macro inputs (building blocks)
         advanced_keys = [
@@ -513,11 +524,12 @@ def build_overrides():
         ]
         for key in advanced_keys:
             session_key = f"macro_{region}_{key}"
-            if session_key in st.session_state and st.session_state[session_key] is not None:
+            val = get_value(session_key)
+            if val is not None:
                 if key == 'my_ratio':
-                    region_overrides[key] = st.session_state[session_key]  # Not a percentage
+                    region_overrides[key] = val  # Not a percentage
                 else:
-                    region_overrides[key] = st.session_state[session_key] / 100
+                    region_overrides[key] = val / 100
 
         if region_overrides:
             if 'macro' not in overrides:
@@ -530,11 +542,12 @@ def build_overrides():
         for key in ['current_yield', 'duration', 'default_rate', 'recovery_rate', 'credit_spread',
                     'fair_term_premium', 'fair_credit_spread', 'current_term_premium']:
             session_key = f"{bond_key}_{key}"
-            if session_key in st.session_state and st.session_state[session_key] is not None:
+            val = get_value(session_key)
+            if val is not None:
                 if key in ['duration']:
-                    bond_overrides[key] = st.session_state[session_key]
+                    bond_overrides[key] = val
                 else:
-                    bond_overrides[key] = st.session_state[session_key] / 100
+                    bond_overrides[key] = val / 100
         if bond_overrides:
             overrides[bond_key] = bond_overrides
 
@@ -544,8 +557,9 @@ def build_overrides():
         equity_overrides = {}
         for key in ['dividend_yield', 'real_eps_growth', 'current_caey', 'fair_caey', 'regional_eps_growth']:
             session_key = f"{equity_key}_{key}"
-            if session_key in st.session_state and st.session_state[session_key] is not None:
-                equity_overrides[key] = st.session_state[session_key] / 100
+            val = get_value(session_key)
+            if val is not None:
+                equity_overrides[key] = val / 100
         if equity_overrides:
             overrides[equity_key] = equity_overrides
 
@@ -553,11 +567,12 @@ def build_overrides():
     hf_overrides = {}
     for key in ['trading_alpha', 'beta_market', 'beta_value', 'beta_momentum', 'beta_size', 'beta_profitability', 'beta_investment']:
         session_key = f"absolute_return_{key}"
-        if session_key in st.session_state and st.session_state[session_key] is not None:
+        val = get_value(session_key)
+        if val is not None:
             if key == 'trading_alpha':
-                hf_overrides[key] = st.session_state[session_key] / 100
+                hf_overrides[key] = val / 100
             else:
-                hf_overrides[key] = st.session_state[session_key]
+                hf_overrides[key] = val
     if hf_overrides:
         overrides['absolute_return'] = hf_overrides
 
@@ -1025,10 +1040,17 @@ overrides = build_overrides()
 if 'pending_save_scenario' in st.session_state:
     scenario_name = st.session_state['pending_save_scenario']
     del st.session_state['pending_save_scenario']
-    if save_scenario(scenario_name, overrides, base_currency):
-        st.sidebar.success(f"Saved scenario: '{scenario_name}'")
+    if overrides:
+        if save_scenario(scenario_name, overrides, base_currency):
+            st.sidebar.success(f"Saved '{scenario_name}' with {len(overrides)} override group(s)")
+        else:
+            st.sidebar.error("Failed to save scenario (filesystem may be read-only)")
     else:
-        st.sidebar.error("Failed to save scenario (filesystem may be read-only)")
+        # Save with empty overrides (just base currency)
+        if save_scenario(scenario_name, {}, base_currency):
+            st.sidebar.warning(f"Saved '{scenario_name}' (no changes from defaults)")
+        else:
+            st.sidebar.error("Failed to save scenario")
 
 base_ccy = base_currency.lower()  # 'usd' or 'eur'
 engine = CMEEngine(overrides if overrides else None, base_currency=base_ccy)
