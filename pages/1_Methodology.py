@@ -123,7 +123,7 @@ st.sidebar.markdown("""
   - [Liquidity](#liquidity-cash-t-bills)
   - [Bonds Global](#bonds-global-government)
   - [Bonds High Yield](#bonds-high-yield)
-  - [Bonds EM](#bonds-em-local-currency)
+  - [Bonds EM](#bonds-em-hard-currency)
   - [Equity](#equity-models)
   - [Absolute Return](#absolute-return-hedge-funds)
 - [Input Reference](#input-reference)
@@ -241,7 +241,7 @@ Each asset class has a "local currency" that determines when FX adjustments appl
 | **Liquidity** | Base currency | No FX adjustment | No FX adjustment |
 | **Bonds Global** | USD | No FX adjustment | FX adjustment applied |
 | **Bonds High Yield** | USD | No FX adjustment | FX adjustment applied |
-| **Bonds EM** | EM currencies | FX adjustment applied | FX adjustment applied |
+| **Bonds EM** | USD | No FX adjustment | FX adjustment applied |
 | **Equity US** | USD | No FX adjustment | FX adjustment applied |
 | **Equity Europe** | EUR | FX adjustment applied | No FX adjustment |
 | **Equity Japan** | JPY | FX adjustment applied | FX adjustment applied |
@@ -551,24 +551,26 @@ smaller than the raw spread suggests.
 """, unsafe_allow_html=True)
 
 # Bonds EM
-st.markdown('<p class="subsection-header" id="bonds-em-local-currency">🌍 Bonds EM (Local Currency)</p>', unsafe_allow_html=True)
+st.markdown('<p class="subsection-header" id="bonds-em-hard-currency">🌍 Bonds EM (Hard Currency)</p>', unsafe_allow_html=True)
 
 st.markdown("""
-EM local currency bonds use the same framework with EM-specific assumptions.
+EM hard currency bonds are USD-denominated sovereign bonds issued by emerging market countries.
+They follow the same framework as other USD bonds with EM-specific credit assumptions.
 """)
 
 st.markdown("""
 | Input | Default | Note |
 |-------|---------|------|
-| Current Yield | 6.5% | Higher than DM due to EM premium |
+| Current Yield | 6.5% | Higher than DM due to EM credit spread |
 | Duration | 5.5 years | Typically shorter than DM |
-| Default Rate | 0.18% | Low for local currency sovereign debt |
-| Recovery Rate | 40% | Similar to other bonds |
-| EM Inflation Premium | 1.5% | Added to DM inflation base |
+| Default Rate | 2.8% | EM hard currency sovereign default rate |
+| Recovery Rate | 55% | Typical EM sovereign recovery |
 
-**Why Low Default Rate?**
-Sovereigns issuing in their own currency can technically print money to pay debts, 
-making outright default rare (though currency devaluation is possible).
+**Why USD-Denominated?**
+Hard currency bonds are issued in USD, meaning:
+- No FX adjustment for USD-based investors (same as Bonds Global, Bonds HY)
+- EUR investors receive EUR/USD FX adjustment
+- Credit risk is higher than local currency (cannot print USD to repay)
 """)
 
 # Equity
@@ -801,7 +803,7 @@ bond_data = {
     ],
     "Bonds Global": ["3.5%", "7.0", "1.0%", "1.5%", "—", "—", "0%", "100%"],
     "Bonds HY": ["7.5%", "4.0", "1.0%", "1.5%", "3.5%", "4.0%", "5.5%", "40%"],
-    "Bonds EM": ["6.5%", "5.5", "1.5%", "2.0%", "—", "—", "0.18%", "40%"],
+    "Bonds EM": ["6.5%", "5.5", "1.5%", "2.0%", "—", "—", "2.8%", "55%"],
     "Mode": ["Basic", "Basic", "Advanced", "Advanced", "Advanced", "Advanced", "Basic", "Basic"],
     "Description": [
         "Yield to maturity of bond index",
