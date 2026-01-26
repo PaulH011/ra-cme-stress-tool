@@ -19,6 +19,12 @@ from ra_stress_tool.config import AssetClass, EXPECTED_VOLATILITY
 SCENARIOS_FILE = 'scenarios.json'
 
 # Default values for all inputs (used for comparison to detect overrides)
+def get_input_value(key):
+    """Get value from session_state or return default if not set."""
+    if key in st.session_state:
+        return st.session_state[key]
+    return INPUT_DEFAULTS.get(key)
+
 INPUT_DEFAULTS = {
     # US Macro
     'macro_us_inflation_forecast': 2.29,
@@ -780,10 +786,16 @@ with st.sidebar:
     with col_save:
         if st.button("💾 Save Scenario", use_container_width=True):
             if new_scenario_name and new_scenario_name.strip():
-                # We need to build overrides first - will be done after build_overrides is called
-                # Store the name in session state and handle save after overrides are built
-                st.session_state['pending_save_scenario'] = new_scenario_name.strip()
-                st.rerun()
+                # Build overrides directly from current session state
+                current_overrides = build_overrides()
+                if save_scenario(new_scenario_name.strip(), current_overrides, base_currency):
+                    if current_overrides:
+                        st.toast(f"✅ Saved '{new_scenario_name}' with {len(current_overrides)} override group(s)", icon="✅")
+                    else:
+                        st.toast(f"⚠️ Saved '{new_scenario_name}' (no changes from defaults)", icon="⚠️")
+                    st.rerun()  # Refresh to show new scenario in dropdown
+                else:
+                    st.toast(f"❌ Failed to save", icon="❌")
             else:
                 st.error("Please enter a scenario name")
     
@@ -1170,28 +1182,17 @@ with st.sidebar:
 # Build overrides and compute results
 overrides = build_overrides()
 
-# Handle pending scenario save
-if 'pending_save_scenario' in st.session_state:
-    scenario_name = st.session_state['pending_save_scenario']
-    del st.session_state['pending_save_scenario']
-    
-    # Debug: Check what's in session_state for macro inputs
+# Debug display (can be removed later)
+if overrides:
+    pass  # Overrides detected, all good
+else:
+    # Only show debug if there are macro keys but no overrides (helps debug issues)
     debug_keys = [k for k in st.session_state.keys() if 'macro_us' in k]
-    us_inflation = st.session_state.get('macro_us_inflation_forecast', 'NOT FOUND')
-    
-    # Debug: show what we're trying to save
-    override_count = len(overrides) if overrides else 0
-    
-    if save_scenario(scenario_name, overrides, base_currency):
-        if overrides:
-            st.toast(f"✅ Saved '{scenario_name}' with {override_count} override group(s)", icon="✅")
-        else:
-            # Show debug info when no overrides found
-            st.toast(f"⚠️ Saved '{scenario_name}' (no changes detected)", icon="⚠️")
-            st.warning(f"Debug: US Inflation value = {us_inflation}, Keys found: {debug_keys}")
-    else:
-        st.toast(f"❌ Failed to save - filesystem may be read-only", icon="❌")
-        st.error(f"Failed to save scenario '{scenario_name}'. On Streamlit Cloud, saving is not supported.")
+    if debug_keys:
+        us_val = st.session_state.get('macro_us_inflation_forecast', 'N/A')
+        us_default = INPUT_DEFAULTS.get('macro_us_inflation_forecast', 'N/A')
+        if us_val != us_default:
+            st.info(f"Debug: US Inflation = {us_val} (default: {us_default}), but no override detected")
 
 base_ccy = base_currency.lower()  # 'usd' or 'eur'
 engine = CMEEngine(overrides if overrides else None, base_currency=base_ccy)
