@@ -32,7 +32,7 @@ class CMEEngine:
         AssetClass.LIQUIDITY: "Liquidity (Cash)",
         AssetClass.BONDS_GLOBAL: "Bonds Global (Gov)",
         AssetClass.BONDS_HY: "Bonds High Yield",
-        AssetClass.BONDS_EM: "Bonds EM (Local)",
+        AssetClass.BONDS_EM: "Bonds EM (Hard Currency)",
         AssetClass.EQUITY_US: "Equity US",
         AssetClass.EQUITY_EUROPE: "Equity Europe",
         AssetClass.EQUITY_JAPAN: "Equity Japan",

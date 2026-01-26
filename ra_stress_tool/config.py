@@ -243,8 +243,8 @@ DEFAULT_ASSET_DATA = {
         'duration': 5.5,                       # 5.5 years
         'current_term_premium': 0.015,         # 1.5%
         'fair_term_premium': 0.02,             # 2.0%
-        'default_rate': 0.0018,                # 0.18%
-        'recovery_rate': 0.40,                 # 40%
+        'default_rate': 0.028,                 # 2.8% (EM hard currency)
+        'recovery_rate': 0.55,                 # 55%
     },
 
     AssetClass.EQUITY_US: {
@@ -305,7 +305,7 @@ ASSET_LOCAL_CURRENCY = {
     AssetClass.LIQUIDITY: 'base',       # Uses base currency T-Bill
     AssetClass.BONDS_GLOBAL: 'usd',     # USD-hedged developed bonds
     AssetClass.BONDS_HY: 'usd',         # US High Yield
-    AssetClass.BONDS_EM: 'em',          # EM local currency
+    AssetClass.BONDS_EM: 'usd',         # USD hard currency (EM sovereign bonds issued in USD)
     AssetClass.EQUITY_US: 'usd',
     AssetClass.EQUITY_EUROPE: 'eur',
     AssetClass.EQUITY_JAPAN: 'jpy',

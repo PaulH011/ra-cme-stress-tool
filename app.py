@@ -178,14 +178,14 @@ MODEL_FORMULAS = {
         }
     },
     'bonds_em': {
-        'name': 'Bonds EM (Local Currency)',
+        'name': 'Bonds EM (Hard Currency)',
         'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses + FX Return',
-        'description': 'Emerging market local currency bonds with EM-specific rates and small credit losses. FX adjustment applies for both USD and EUR base.',
+        'description': 'Emerging market USD-denominated sovereign bonds. No FX adjustment for USD base; EUR/USD adjustment applied when EUR base.',
         'components': {
             'yield': {
-                'formula': 'Avg Yield = E[EM T-Bill] + Avg Term Premium',
-                'sub_formula': 'Uses EM-specific T-Bill rate (higher than DM)',
-                'inputs': ['current_yield', 'duration', 'em_tbill_forecast', 'current_term_premium', 'fair_term_premium']
+                'formula': 'Avg Yield = E[US T-Bill] + Avg Term Premium + EM Spread',
+                'sub_formula': 'USD-denominated; uses US T-Bill plus EM credit spread',
+                'inputs': ['current_yield', 'duration', 'tbill_forecast', 'current_term_premium', 'fair_term_premium']
             },
             'roll_return': {
                 'formula': 'Roll Return = (Term Premium / Maturity) × Duration',
@@ -199,7 +199,7 @@ MODEL_FORMULAS = {
             },
             'credit_loss': {
                 'formula': 'Credit Loss = Default Rate × (1 - Recovery Rate)',
-                'sub_formula': 'Low default rate for local currency sovereign debt (0.18% historical)',
+                'sub_formula': 'EM hard currency sovereign default rate (2.8% historical)',
                 'inputs': ['default_rate', 'recovery_rate']
             },
             'fx_return': FX_FORMULA
@@ -592,7 +592,7 @@ with st.sidebar:
 
     # Bond Assumptions
     with st.expander("🏦 Bond Assumptions", expanded=False):
-        tab_gov, tab_hy, tab_emb = st.tabs(["Global Gov", "High Yield", "EM Local"])
+        tab_gov, tab_hy, tab_emb = st.tabs(["Global Gov", "High Yield", "EM Hard"])
 
         with tab_gov:
             st.markdown("**Primary Inputs:**")
@@ -653,11 +653,11 @@ with st.sidebar:
                            step=0.5, key="bonds_em_duration",
                            placeholder="5.5", help="Default: 5.5 years")
             st.number_input("Default Rate (%)", min_value=0.0, max_value=10.0, value=None,
-                           step=0.01, key="bonds_em_default_rate",
-                           placeholder="0.18", help="Default: 0.18% | EM local currency default rate")
+                           step=0.1, key="bonds_em_default_rate",
+                           placeholder="2.80", help="Default: 2.80% | EM hard currency sovereign default rate")
             st.number_input("Recovery Rate (%)", min_value=0.0, max_value=100.0, value=None,
                            step=1.0, key="bonds_em_recovery_rate",
-                           placeholder="40.0", help="Default: 40%")
+                           placeholder="55.0", help="Default: 55% | EM sovereign recovery rate")
 
             if advanced_mode:
                 st.markdown("---")
