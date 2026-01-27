@@ -116,7 +116,16 @@ E[FX Return] = 30% × (Home T-Bill - Foreign T-Bill) + 70% × (Home Inflation - 
 
 def get_anthropic_client():
     """Get Anthropic client if API key is available."""
+    # Try environment variable first (local .env)
     api_key = os.getenv('ANTHROPIC_API_KEY')
+
+    # Fallback to Streamlit secrets (for Streamlit Cloud deployment)
+    if not api_key:
+        try:
+            api_key = st.secrets.get('ANTHROPIC_API_KEY')
+        except Exception:
+            pass
+
     if not api_key:
         return None
     return anthropic.Anthropic(api_key=api_key)
