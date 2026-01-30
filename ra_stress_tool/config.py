@@ -239,7 +239,7 @@ DEFAULT_ASSET_DATA = {
     },
 
     AssetClass.BONDS_EM: {
-        'current_yield': 0.065,                # 6.5%
+        'current_yield': 0.0577,               # 5.77% (BBG EM USD Aggregate Index YTM)
         'duration': 5.5,                       # 5.5 years
         'current_term_premium': 0.015,         # 1.5%
         'fair_term_premium': 0.02,             # 2.0%

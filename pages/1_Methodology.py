@@ -591,7 +591,7 @@ st.markdown("""
 st.markdown("""
 | Input | Default | Note |
 |-------|---------|------|
-| Current Yield | 6.5% | Higher than DM due to EM credit spread |
+| Current Yield | 5.77% | BBG EM USD Aggregate Index YTM |
 | Duration | 5.5 years | Typically shorter than DM |
 | Default Rate | 2.8% | EM hard currency sovereign default rate |
 | Recovery Rate | 55% | Typical EM sovereign recovery |
@@ -835,7 +835,7 @@ bond_data = {
     ],
     "Bonds Global": ["3.5%", "7.0", "1.0%", "1.5%", "—", "—", "0%", "100%"],
     "Bonds HY": ["7.5%", "4.0", "1.0%", "1.5%", "3.5%", "4.0%", "5.5%", "40%"],
-    "Bonds EM": ["6.5%", "5.5", "1.5%", "2.0%", "—", "—", "2.8%", "55%"],
+    "Bonds EM": ["5.77%", "5.5", "1.5%", "2.0%", "—", "—", "2.8%", "55%"],
     "Mode": ["Basic", "Basic", "Advanced", "Advanced", "Advanced", "Advanced", "Basic", "Basic"],
     "Description": [
         "Yield to maturity of bond index",

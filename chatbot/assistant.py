@@ -80,7 +80,7 @@ E[FX Return] = 30% × (Home T-Bill - Foreign T-Bill) + 70% × (Home Inflation - 
 
 **Bonds Global:** Yield 3.5%, Duration 7.0 yrs, Term Premium 1.0% (fair: 1.5%)
 **Bonds HY:** Yield 7.5%, Duration 4.0 yrs, Default 5.5%, Recovery 40%
-**Bonds EM:** Yield 6.5%, Duration 5.5 yrs, Default 2.8%, Recovery 55%
+**Bonds EM:** Yield 5.77%, Duration 5.5 yrs, Default 2.8%, Recovery 55%
 
 **Equity US:** Div Yield 1.5%, CAEY 3.5% (fair: 5.0%), EPS Growth 1.8%
 **Equity Europe:** Div Yield 3.0%, CAEY 5.5% (fair: 5.5%), EPS Growth 1.2%

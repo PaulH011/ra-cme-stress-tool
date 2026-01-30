@@ -109,7 +109,7 @@ INPUT_DEFAULTS = {
     'bonds_hy_default_rate': 5.50,
     'bonds_hy_recovery_rate': 40.0,
     # Bonds EM
-    'bonds_em_current_yield': 6.50,
+    'bonds_em_current_yield': 5.77,
     'bonds_em_duration': 5.5,
     'bonds_em_fair_term_premium': 2.00,
     'bonds_em_current_term_premium': 1.50,
@@ -1136,7 +1136,7 @@ with st.sidebar:
             st.markdown("**Primary Inputs:**")
             st.number_input("Current Yield (%)", min_value=0.0, max_value=20.0, value=None,
                            step=0.1, key=widget_key("bonds_em_current_yield"),
-                           placeholder="6.50", help="Default: 6.50%")
+                           placeholder="5.77", help="Default: 5.77% (BBG EM USD Aggregate Index)")
             st.number_input("Duration (years)", min_value=0.0, max_value=15.0, value=None,
                            step=0.5, key=widget_key("bonds_em_duration"),
                            placeholder="5.5", help="Default: 5.5 years")
