@@ -578,8 +578,15 @@ st.markdown('<p class="subsection-header" id="bonds-em-hard-currency">🌍 Bonds
 
 st.markdown("""
 EM hard currency bonds are USD-denominated sovereign bonds issued by emerging market countries.
-They follow the same framework as other USD bonds with EM-specific credit assumptions.
+Since they are priced off the US Treasury curve, they use **US macro assumptions** (not EM macro).
 """)
+
+st.markdown("""
+<div class="formula-box-highlight">
+<strong>Yield = E[US T-Bill] + Term Premium + EM Credit Spread (~2%)</strong><br/>
+<strong>Real Return = Nominal Return - US Inflation</strong>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 | Input | Default | Note |
@@ -589,11 +596,13 @@ st.markdown("""
 | Default Rate | 2.8% | EM hard currency sovereign default rate |
 | Recovery Rate | 55% | Typical EM sovereign recovery |
 
-**Why USD-Denominated?**
+**Why US Macro Assumptions?**
 Hard currency bonds are issued in USD, meaning:
+- **Yield is based on US T-Bill** plus an EM credit spread (bonds trade as spread over US Treasuries)
+- **Real return uses US inflation** (investor receives USD, purchasing power measured in USD)
 - No FX adjustment for USD-based investors (same as Bonds Global, Bonds HY)
 - EUR investors receive EUR/USD FX adjustment
-- Credit risk is higher than local currency (cannot print USD to repay)
+- Changing US inflation/T-Bill affects Bonds EM returns (consistent with other USD bonds)
 """)
 
 # Equity

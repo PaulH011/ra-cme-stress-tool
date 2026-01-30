@@ -422,12 +422,12 @@ MODEL_FORMULAS = {
     'bonds_em': {
         'name': 'Bonds EM (Hard Currency)',
         'main_formula': 'E[Return] = Yield + Roll Return + Valuation Return - Credit Losses + FX Return',
-        'description': 'Emerging market USD-denominated sovereign bonds. No FX adjustment for USD base; EUR/USD adjustment applied when EUR base.',
+        'description': 'Emerging market USD-denominated sovereign bonds. Uses US T-Bill and US inflation (not EM macro) since bonds are priced off the US Treasury curve. No FX adjustment for USD base; EUR/USD adjustment applied when EUR base.',
         'components': {
             'yield': {
-                'formula': 'Avg Yield = E[US T-Bill] + Avg Term Premium + EM Spread',
-                'sub_formula': 'USD-denominated; uses US T-Bill plus EM credit spread',
-                'inputs': ['current_yield', 'duration', 'tbill_forecast', 'current_term_premium', 'fair_term_premium']
+                'formula': 'Avg Yield = E[US T-Bill] + Avg Term Premium + EM Credit Spread (~2%)',
+                'sub_formula': 'USD-denominated; yield based on US T-Bill plus EM sovereign credit spread',
+                'inputs': ['current_yield', 'duration', 'us_tbill_forecast', 'current_term_premium', 'fair_term_premium']
             },
             'roll_return': {
                 'formula': 'Roll Return = (Term Premium / Maturity) × Duration',
