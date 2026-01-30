@@ -347,7 +347,11 @@ class CMEEngine:
 
     def compute_bonds_em_return(self) -> AssetClassResult:
         """
-        Compute expected return for EM local currency bonds.
+        Compute expected return for EM hard currency bonds (USD-denominated).
+
+        For hard currency bonds:
+        - Yield based on US T-Bill + EM credit spread (bonds priced off US curve)
+        - US inflation for real return (investor receives USD)
 
         Returns
         -------
@@ -355,12 +359,17 @@ class CMEEngine:
             EM bond return result.
         """
         macro = self.compute_macro_forecasts()
-        em_macro = macro['em']
+        us_macro = macro['us']
 
+        # For hard currency (USD-denominated) bonds:
+        # - Use US T-Bill as base rate (bonds priced off US Treasury curve)
+        # - Model adds EM credit spread (~2%) when em_tbill_forecast is None
+        # - Use US inflation for real return (investor receives USD)
         forecast = self.em_bond_model.compute_return(
-            tbill_forecast=em_macro['tbill_rate'],
-            inflation_forecast=em_macro['inflation'],
-            em_tbill_forecast=em_macro['tbill_rate'],
+            tbill_forecast=us_macro['tbill_rate'],  # US T-Bill as base
+            inflation_forecast=us_macro['inflation'],  # US inflation for hard currency
+            em_tbill_forecast=None,  # Let model add EM credit spread
+            hard_currency=True,  # USD-denominated bonds
         )
 
         return AssetClassResult(

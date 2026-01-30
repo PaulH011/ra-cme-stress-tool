@@ -492,7 +492,8 @@ class EMBondModel(BondModel):
         tbill_forecast: float,
         inflation_forecast: float,
         forecast_horizon: int = 10,
-        em_tbill_forecast: Optional[float] = None
+        em_tbill_forecast: Optional[float] = None,
+        hard_currency: bool = False
     ) -> BondForecast:
         """
         Compute EM bond return.
@@ -502,11 +503,16 @@ class EMBondModel(BondModel):
         tbill_forecast : float
             US T-Bill forecast (for reference).
         inflation_forecast : float
-            US/Global inflation forecast.
+            Inflation forecast for real return calculation.
+            For hard currency bonds, this should be US/DM inflation.
+            For local currency bonds, this is the base before EM premium.
         forecast_horizon : int
             Years for forecast.
         em_tbill_forecast : float, optional
             EM-specific T-Bill forecast. If None, uses US + spread.
+        hard_currency : bool, optional
+            If True, treats as USD-denominated hard currency bonds.
+            Uses passed inflation directly without EM premium adjustment.
 
         Returns
         -------
@@ -520,10 +526,15 @@ class EMBondModel(BondModel):
             em_spread = 0.02  # Default 2% spread over US
             em_tbill_forecast = tbill_forecast + em_spread
 
-        # EM inflation is typically higher
-        em_inflation_premium = inputs.get('em_inflation_premium',
-                                          TrackedValue(0.015, InputSource.DEFAULT)).value
-        em_inflation = inflation_forecast + em_inflation_premium
+        # For hard currency bonds (USD-denominated), use the passed inflation directly
+        # (should be US inflation for proper real return calculation)
+        # For local currency bonds, add EM inflation premium
+        if hard_currency:
+            effective_inflation = inflation_forecast
+        else:
+            em_inflation_premium = inputs.get('em_inflation_premium',
+                                              TrackedValue(0.015, InputSource.DEFAULT)).value
+            effective_inflation = inflation_forecast + em_inflation_premium
 
         # Compute base forecast using EM T-Bill
-        return super().compute_return(em_tbill_forecast, em_inflation, forecast_horizon)
+        return super().compute_return(em_tbill_forecast, effective_inflation, forecast_horizon)
