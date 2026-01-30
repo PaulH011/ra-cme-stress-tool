@@ -61,7 +61,7 @@ INPUT_DEFAULTS = {
     'macro_us_my_ratio': 2.1,
     'macro_us_current_headline_inflation': 2.50,
     'macro_us_long_term_inflation': 2.20,
-    'macro_us_current_tbill': 4.50,
+    'macro_us_current_tbill': 3.67,
     'macro_us_country_factor': 0.00,
     # Eurozone Macro
     'macro_eurozone_inflation_forecast': 2.06,
@@ -971,7 +971,7 @@ with st.sidebar:
                 st.number_input("Current T-Bill Rate — Today (%)", min_value=-1.0, max_value=15.0, 
                                value=INPUT_DEFAULTS['macro_us_current_tbill'],
                                step=0.1, key=widget_key("macro_us_current_tbill"),
-                               help="Default: 4.50% | Today's 3-month T-Bill rate")
+                               help="Default: 3.67% | Today's 3-month UST yield")
                 st.number_input("Country Factor (%)", min_value=-2.0, max_value=2.0, 
                                value=INPUT_DEFAULTS['macro_us_country_factor'],
                                step=0.1, key=widget_key("macro_us_country_factor"),

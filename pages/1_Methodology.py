@@ -410,7 +410,7 @@ st.markdown("""
 
 | Component | Description | Default Values |
 |-----------|-------------|----------------|
-| **Current T-Bill** | Today's 3-month T-Bill rate | US: 4.5%, EU: 3.5%, JP: 0.1%, EM: 6.0% |
+| **Current T-Bill** | Today's 3-month T-Bill rate | US: 3.67%, EU: 3.5%, JP: 0.1%, EM: 6.0% |
 | **Country Factor** | Liquidity/risk premium adjustment | US: 0%, EU: -0.2%, JP: -0.5%, EM: +0.5% |
 | **Rate Floor** | Minimum possible rate | -0.75% (allows for negative rates) |
 
@@ -802,7 +802,7 @@ macro_data = {
         "Current T-Bill", "Country Factor",
         "E[Inflation] (direct)", "E[GDP Growth] (direct)", "E[T-Bill] (direct)"
     ],
-    "US": ["0.4%", "1.2%", "2.1", "2.5%", "2.2%", "4.5%", "0.0%", "—", "—", "—"],
+    "US": ["0.4%", "1.2%", "2.1", "2.5%", "2.2%", "3.67%", "0.0%", "—", "—", "—"],
     "Europe": ["0.1%", "1.0%", "2.3", "2.2%", "2.0%", "3.5%", "-0.2%", "—", "—", "—"],
     "Japan": ["-0.5%", "0.8%", "2.5", "2.0%", "1.5%", "0.1%", "-0.5%", "—", "—", "—"],
     "EM": ["1.0%", "2.5%", "1.5", "4.5%", "3.5%", "6.0%", "+0.5%", "—", "—", "—"],

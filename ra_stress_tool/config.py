@@ -181,7 +181,7 @@ DEFAULT_MARKET_DATA = {
     # US Macro
     'us': {
         'current_headline_inflation': 0.025,   # 2.5%
-        'current_tbill': 0.045,                # 4.5%
+        'current_tbill': 0.0367,               # 3.67% (3-month UST yield)
         'population_growth': 0.004,            # 0.4%
         'productivity_growth': 0.012,          # 1.2%
         'my_ratio': 2.1,                       # Middle/Young ratio
