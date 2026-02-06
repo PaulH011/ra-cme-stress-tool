@@ -148,7 +148,8 @@ class BondModel(ABC):
         self,
         duration: float,
         term_premium: float,
-        maturity_years: float = 10.0
+        maturity_years: float = 10.0,
+        duration_source: InputSource = InputSource.DEFAULT
     ) -> Dict[str, TrackedValue]:
         """
         Forecast roll return from yield curve roll-down.
@@ -164,6 +165,8 @@ class BondModel(ABC):
             Current term premium.
         maturity_years : float
             Average maturity of the index.
+        duration_source : InputSource
+            Source of the duration value (DEFAULT or OVERRIDE).
 
         Returns
         -------
@@ -179,7 +182,7 @@ class BondModel(ABC):
         return {
             'roll_return': TrackedValue(roll_return, InputSource.COMPUTED),
             'yield_curve_slope': TrackedValue(slope, InputSource.COMPUTED),
-            'duration': TrackedValue(duration, InputSource.DEFAULT),
+            'duration': TrackedValue(duration, duration_source),
         }
 
     def forecast_valuation_return(
@@ -187,7 +190,8 @@ class BondModel(ABC):
         current_term_premium: float,
         fair_term_premium: float,
         duration: float,
-        forecast_horizon: int = 10
+        forecast_horizon: int = 10,
+        duration_source: InputSource = InputSource.DEFAULT
     ) -> Dict[str, TrackedValue]:
         """
         Forecast valuation return from term premium mean reversion.
@@ -205,6 +209,8 @@ class BondModel(ABC):
             Modified duration.
         forecast_horizon : int
             Years for forecast.
+        duration_source : InputSource
+            Source of the duration value (DEFAULT or OVERRIDE).
 
         Returns
         -------
@@ -228,6 +234,7 @@ class BondModel(ABC):
             'valuation_return': TrackedValue(valuation_return, InputSource.COMPUTED),
             'expected_tp_change': TrackedValue(expected_tp_change, InputSource.COMPUTED),
             'reversion_fraction': TrackedValue(reversion_fraction, InputSource.COMPUTED),
+            'duration': TrackedValue(duration, duration_source),
         }
 
     def _average_mean_reverting_value(
@@ -300,7 +307,9 @@ class BondModel(ABC):
         current_yield_tv = inputs.get('current_yield', TrackedValue(default_current_yield, InputSource.DEFAULT))
         current_yield = current_yield_tv.value
         current_yield_source = current_yield_tv.source
-        duration = inputs.get('duration', TrackedValue(7.0, InputSource.DEFAULT)).value
+        duration_tv = inputs.get('duration', TrackedValue(7.0, InputSource.DEFAULT))
+        duration = duration_tv.value
+        duration_source = duration_tv.source
 
         # Yield component
         yield_result = self.forecast_yield_component(
@@ -311,11 +320,11 @@ class BondModel(ABC):
         fair_tp = yield_result['fair_term_premium'].value
 
         # Roll return
-        roll_result = self.forecast_roll_return(duration, current_tp)
+        roll_result = self.forecast_roll_return(duration, current_tp, duration_source=duration_source)
         roll_return = roll_result['roll_return'].value
 
         # Valuation return
-        val_result = self.forecast_valuation_return(current_tp, fair_tp, duration, forecast_horizon)
+        val_result = self.forecast_valuation_return(current_tp, fair_tp, duration, forecast_horizon, duration_source=duration_source)
         valuation_return = val_result['valuation_return'].value
 
         # Credit losses
