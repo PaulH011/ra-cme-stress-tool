@@ -155,7 +155,7 @@ export default function Dashboard() {
             <CardTitle className="text-lg">Risk-Return Profile</CardTitle>
           </CardHeader>
           <CardContent>
-            <RiskReturnChart results={results} isLoading={isLoading} />
+            <RiskReturnChart results={results} baseResults={baseResults} isLoading={isLoading} />
           </CardContent>
         </Card>
 
