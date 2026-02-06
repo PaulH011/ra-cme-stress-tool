@@ -91,6 +91,19 @@ function WaterfallChart({ components }: { components: { name: string; value: num
   );
 }
 
+// Known key aliases where the backend key doesn't match the suffix pattern
+const KEY_ALIASES: Record<string, string[]> = {
+  credit_spread: ['credit_spread_current_spread'],
+  fair_credit_spread: ['credit_spread_fair_spread'],
+  us_tbill_forecast: ['yield_tbill_forecast', 'tbill_forecast'],
+  beta_market: ['factor_market'],
+  beta_size: ['factor_size'],
+  beta_value: ['factor_value'],
+  beta_profitability: ['factor_profitability'],
+  beta_investment: ['factor_investment'],
+  beta_momentum: ['factor_momentum'],
+};
+
 // Find input data from inputsUsed - handles prefixed keys from API
 // API returns keys like "dividend_dividend_yield" but we look for "dividend_yield"
 function findInputData(
@@ -100,6 +113,16 @@ function findInputData(
   // Direct match
   if (inputsUsed[inputKey]) {
     return inputsUsed[inputKey];
+  }
+
+  // Check explicit aliases
+  const aliases = KEY_ALIASES[inputKey];
+  if (aliases) {
+    for (const alias of aliases) {
+      if (inputsUsed[alias]) {
+        return inputsUsed[alias];
+      }
+    }
   }
 
   // Look for prefixed key (e.g., "dividend_dividend_yield" for "dividend_yield")
