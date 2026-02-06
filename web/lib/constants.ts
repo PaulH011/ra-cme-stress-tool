@@ -10,9 +10,14 @@ import type { AllInputs } from './types';
 export const DEFAULT_INPUTS: AllInputs = {
   macro: {
     us: {
+      // Direct forecasts: computed from building blocks below
+      // E[RGDP] = Output-per-Capita + Population = (Prod + Demo + Adj) + Pop
+      // E[Inflation] = 30% × Current + 70% × Long-Term
+      // E[T-Bill] = 30% × Current + 70% × max(-0.75%, CF + GDP + Inflation)
       inflation_forecast: 2.29,
       rgdp_growth: 1.20,
-      tbill_forecast: 3.79,
+      tbill_forecast: 3.54,
+      // Building blocks
       population_growth: 0.40,
       productivity_growth: 1.20,
       my_ratio: 2.1,
@@ -23,39 +28,39 @@ export const DEFAULT_INPUTS: AllInputs = {
     },
     eurozone: {
       inflation_forecast: 2.06,
-      rgdp_growth: 0.80,
-      tbill_forecast: 2.70,
+      rgdp_growth: 0.51,
+      tbill_forecast: 2.27,
       population_growth: 0.10,
       productivity_growth: 1.00,
       my_ratio: 2.3,
       current_headline_inflation: 2.20,
       long_term_inflation: 2.00,
       current_tbill: 2.04,
-      country_factor: 0.00,
+      country_factor: -0.20,
     },
     japan: {
       inflation_forecast: 1.65,
-      rgdp_growth: 0.30,
-      tbill_forecast: 1.00,
+      rgdp_growth: -0.46,
+      tbill_forecast: 0.71,
       population_growth: -0.50,
       productivity_growth: 0.80,
       my_ratio: 2.5,
       current_headline_inflation: 2.00,
       long_term_inflation: 1.50,
       current_tbill: 0.75,
-      country_factor: 0.00,
+      country_factor: -0.50,
     },
     em: {
       inflation_forecast: 3.80,
-      rgdp_growth: 3.00,
-      tbill_forecast: 5.50,
+      rgdp_growth: 3.46,
+      tbill_forecast: 7.23,
       population_growth: 1.00,
       productivity_growth: 2.50,
       my_ratio: 1.5,
       current_headline_inflation: 4.50,
       long_term_inflation: 3.50,
       current_tbill: 6.00,
-      country_factor: 0.00,
+      country_factor: 0.50,
     },
   },
   bonds: {

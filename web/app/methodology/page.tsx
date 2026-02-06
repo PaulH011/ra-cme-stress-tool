@@ -581,7 +581,7 @@ export default function MethodologyPage() {
                       <tr className="border-b"><td className="p-2 font-medium">Current Headline Inflation</td><td className="p-2 text-right">2.50%</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">2.00%</td><td className="p-2 text-right">4.50%</td></tr>
                       <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Long-Term Inflation Target</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">2.00%</td><td className="p-2 text-right">1.50%</td><td className="p-2 text-right">3.50%</td></tr>
                       <tr className="border-b"><td className="p-2 font-medium">Current T-Bill Rate</td><td className="p-2 text-right">3.67%</td><td className="p-2 text-right">2.04%</td><td className="p-2 text-right">0.75%</td><td className="p-2 text-right">6.00%</td></tr>
-                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Country Factor</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">0.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Country Factor</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">-0.20%</td><td className="p-2 text-right">-0.50%</td><td className="p-2 text-right">0.50%</td></tr>
                       <tr className="border-b"><td className="p-2 font-medium">Population Growth</td><td className="p-2 text-right">0.40%</td><td className="p-2 text-right">0.10%</td><td className="p-2 text-right">-0.50%</td><td className="p-2 text-right">1.00%</td></tr>
                       <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Productivity Growth</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">1.00%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">2.50%</td></tr>
                       <tr className="border-b"><td className="p-2 font-medium">MY Ratio (Middle/Young)</td><td className="p-2 text-right">2.10</td><td className="p-2 text-right">2.30</td><td className="p-2 text-right">2.50</td><td className="p-2 text-right">1.50</td></tr>
@@ -603,8 +603,8 @@ export default function MethodologyPage() {
                     </thead>
                     <tbody>
                       <tr className="border-b"><td className="p-2 font-medium">E[Inflation] (10yr avg)</td><td className="p-2 text-right">2.29%</td><td className="p-2 text-right">2.06%</td><td className="p-2 text-right">1.65%</td><td className="p-2 text-right">3.80%</td></tr>
-                      <tr className="border-b bg-blue-50"><td className="p-2 font-medium">E[Real GDP Growth] (10yr avg)</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">0.30%</td><td className="p-2 text-right">3.00%</td></tr>
-                      <tr className="border-b"><td className="p-2 font-medium">E[T-Bill Rate] (10yr avg)</td><td className="p-2 text-right">3.79%</td><td className="p-2 text-right">2.70%</td><td className="p-2 text-right">1.00%</td><td className="p-2 text-right">5.50%</td></tr>
+                      <tr className="border-b bg-blue-50"><td className="p-2 font-medium">E[Real GDP Growth] (10yr avg)</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">0.51%</td><td className="p-2 text-right">-0.46%</td><td className="p-2 text-right">3.46%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">E[T-Bill Rate] (10yr avg)</td><td className="p-2 text-right">3.54%</td><td className="p-2 text-right">2.27%</td><td className="p-2 text-right">0.71%</td><td className="p-2 text-right">7.23%</td></tr>
                     </tbody>
                   </table>
                 </div>
