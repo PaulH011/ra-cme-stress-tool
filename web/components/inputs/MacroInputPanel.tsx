@@ -7,7 +7,6 @@ import { DEFAULT_INPUTS, MACRO_FIELD_NAMES } from '@/lib/constants';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { ComputedPreviewTooltip } from './ComputedPreviewTooltip';
 import type { MacroRegion, MacroInputs } from '@/lib/types';
@@ -315,24 +314,8 @@ function MacroRegionInputs({ region }: { region: MacroRegion }) {
 }
 
 export function MacroInputPanel() {
-  const { advancedMode, setAdvancedMode } = useInputStore();
-
   return (
     <div className="space-y-4">
-      {/* Advanced Mode Toggle */}
-      <div className="flex items-center justify-between">
-        <Label htmlFor="advanced-mode" className="text-sm font-medium">
-          Advanced Mode
-        </Label>
-        <Switch
-          id="advanced-mode"
-          checked={advancedMode}
-          onCheckedChange={setAdvancedMode}
-        />
-      </div>
-
-      <Separator />
-
       {/* Region Tabs */}
       <Tabs defaultValue="us" className="w-full">
         <TabsList className="grid w-full grid-cols-4">

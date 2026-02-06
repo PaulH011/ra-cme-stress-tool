@@ -16,6 +16,8 @@ import { ActiveOverridesSummary } from '@/components/results/ActiveOverridesSumm
 import { ScenarioManager } from '@/components/scenarios/ScenarioManager';
 import { useCalculation } from '@/hooks/useCalculation';
 import { useInputStore } from '@/stores/inputStore';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { RefreshCw } from 'lucide-react';
 
 export default function Dashboard() {
@@ -25,6 +27,8 @@ export default function Dashboard() {
   const bonds = useInputStore((state) => state.bonds);
   const equity = useInputStore((state) => state.equity);
   const absoluteReturn = useInputStore((state) => state.absoluteReturn);
+  const advancedMode = useInputStore((state) => state.advancedMode);
+  const setAdvancedMode = useInputStore((state) => state.setAdvancedMode);
 
   // Recalculate when inputs change (debounced)
   useEffect(() => {
@@ -48,6 +52,18 @@ export default function Dashboard() {
           <CardContent className="p-0">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="px-6 pb-6">
+                {/* Advanced Mode Toggle */}
+                <div className="flex items-center justify-between mb-4">
+                  <Label htmlFor="advanced-mode" className="text-sm font-medium">
+                    Advanced Mode
+                  </Label>
+                  <Switch
+                    id="advanced-mode"
+                    checked={advancedMode}
+                    onCheckedChange={setAdvancedMode}
+                  />
+                </div>
+
                 <Tabs defaultValue="macro" className="w-full">
                   <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="macro" className="text-xs">Macro</TabsTrigger>
