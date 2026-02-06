@@ -428,9 +428,11 @@ class HighYieldBondModel(BondModel):
         """
         inputs = self.get_inputs()
 
-        # Get credit spread inputs
-        credit_spread = inputs.get('credit_spread', TrackedValue(0.0271, InputSource.DEFAULT)).value
-        fair_credit_spread = inputs.get('fair_credit_spread', TrackedValue(0.04, InputSource.DEFAULT)).value
+        # Get credit spread inputs with source tracking
+        credit_spread_tv = inputs.get('credit_spread', TrackedValue(0.0271, InputSource.DEFAULT))
+        fair_credit_spread_tv = inputs.get('fair_credit_spread', TrackedValue(0.04, InputSource.DEFAULT))
+        credit_spread = credit_spread_tv.value
+        fair_credit_spread = fair_credit_spread_tv.value
 
         # Base calculation
         forecast = super().compute_return(tbill_forecast, inflation_forecast, forecast_horizon)
@@ -455,6 +457,11 @@ class HighYieldBondModel(BondModel):
             'fair_spread': fair_credit_spread,
             'spread_valuation': spread_valuation,
         }
+
+        # Track credit spread sources
+        forecast.sources['credit_spread.current_spread'] = credit_spread_tv.source.value
+        forecast.sources['credit_spread.fair_spread'] = fair_credit_spread_tv.source.value
+        forecast.sources['credit_spread.spread_valuation'] = 'computed'
 
         return BondForecast(
             expected_return_nominal=adjusted_return,

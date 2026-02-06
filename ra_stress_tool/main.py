@@ -830,6 +830,13 @@ class CMEEngine:
             'tbill_forecast': {'value': forecast.tbill_component, 'source': 'computed'},
             'trading_alpha': {'value': forecast.trading_alpha, 'source': forecast.sources.get('trading_alpha', 'default')},
         }
+        # Add factor betas with proper source tracking (beta value + override source)
+        betas = forecast.components.get('factors', {}).get('betas', {})
+        for factor in ['market', 'size', 'value', 'profitability', 'investment', 'momentum']:
+            beta_val = betas.get(factor, 0)
+            beta_source = forecast.sources.get(f'beta_{factor}', 'default')
+            inputs[f'beta_{factor}'] = {'value': beta_val, 'source': beta_source}
+        # Also keep factor contributions for reference
         for factor, contribution in forecast.factor_contributions.items():
             inputs[f'factor_{factor}'] = {'value': contribution, 'source': 'computed'}
         return inputs
