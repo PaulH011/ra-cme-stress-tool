@@ -339,6 +339,30 @@ st.markdown("""
         font-size: 0.85rem;
         color: #856404;
     }
+    .computed-preview {
+        background-color: #e3f2fd;
+        border: 2px solid #2196f3;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    .computed-preview-header {
+        font-size: 0.95rem;
+        font-weight: bold;
+        color: #1565c0;
+        margin-bottom: 0.5rem;
+    }
+    .conflict-warning {
+        background-color: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+    }
+    .conflict-text {
+        color: #856404;
+        font-size: 0.85rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -584,6 +608,280 @@ def get_source_badge(source):
         return '<span class="computed-badge">COMPUTED</span>'
     else:
         return '<span class="default-badge">DEFAULT</span>'
+
+# =============================================================================
+# Real-Time Building Block Preview Functions
+# =============================================================================
+
+from ra_stress_tool.models.macro import MacroModel
+from ra_stress_tool.inputs.overrides import OverrideManager, InputSource
+from ra_stress_tool.utils.ewma import sigmoid_my_ratio
+
+def compute_macro_preview(region: str) -> dict:
+    """
+    Compute macro forecasts from building block values in session state.
+
+    This creates a lightweight preview without running the full CMEEngine.
+
+    Parameters
+    ----------
+    region : str
+        Region identifier (us, eurozone, japan, em).
+
+    Returns
+    -------
+    dict
+        Computed forecasts with keys: rgdp_growth, inflation, tbill,
+        plus intermediate values for display.
+    """
+    # Get building block values from session state (or defaults)
+    def get_val(key):
+        wkey = widget_key(f"macro_{region}_{key}")
+        val = st.session_state.get(wkey)
+        if val is None or (isinstance(val, float) and val != val):
+            return INPUT_DEFAULTS.get(f"macro_{region}_{key}")
+        return val
+
+    # GDP building blocks (percentages in session state)
+    population_growth = get_val('population_growth')
+    productivity_growth = get_val('productivity_growth')
+    my_ratio = get_val('my_ratio')
+
+    # Inflation building blocks
+    current_headline_inflation = get_val('current_headline_inflation')
+    long_term_inflation = get_val('long_term_inflation')
+
+    # T-Bill building blocks
+    current_tbill = get_val('current_tbill')
+    country_factor = get_val('country_factor')
+
+    # Convert from percentage display values to decimals
+    pop_growth = population_growth / 100 if population_growth else 0.004
+    prod_growth = productivity_growth / 100 if productivity_growth else 0.012
+    my = my_ratio if my_ratio else 2.0
+    curr_infl = current_headline_inflation / 100 if current_headline_inflation else 0.025
+    lt_infl = long_term_inflation / 100 if long_term_inflation else 0.022
+    curr_tb = current_tbill / 100 if current_tbill else 0.04
+    ctry_factor = country_factor / 100 if country_factor else 0.0
+
+    # Compute GDP forecast
+    # Demographic effect from MY ratio
+    demographic_effect = sigmoid_my_ratio(my)
+
+    # Adjustment factor
+    adjustment = -0.003 if region.lower() in ['us', 'eurozone', 'japan'] else -0.005
+
+    # Output per capita = productivity + demographic effect + adjustment
+    output_per_capita = prod_growth + demographic_effect + adjustment
+
+    # Total RGDP growth
+    rgdp_growth = output_per_capita + pop_growth
+
+    # Compute Inflation forecast
+    # E[Inflation] = 30% × Current Headline + 70% × Long-Term Target
+    inflation_forecast = 0.30 * curr_infl + 0.70 * lt_infl
+
+    # Compute T-Bill forecast
+    # Long Term = max(-0.75%, Country Factor + RGDP + Inflation)
+    rate_floor = -0.0075
+    long_term_tbill = max(rate_floor, ctry_factor + rgdp_growth + inflation_forecast)
+
+    # E[T-Bill] = 30% × Current T-Bill + 70% × Long-Term
+    tbill_forecast = 0.30 * curr_tb + 0.70 * long_term_tbill
+
+    return {
+        'rgdp_growth': rgdp_growth,
+        'inflation': inflation_forecast,
+        'tbill': tbill_forecast,
+        # Intermediate values for display
+        'population_growth': pop_growth,
+        'productivity_growth': prod_growth,
+        'my_ratio': my,
+        'demographic_effect': demographic_effect,
+        'output_per_capita': output_per_capita,
+        'adjustment': adjustment,
+        'current_headline_inflation': curr_infl,
+        'long_term_inflation': lt_infl,
+        'current_tbill': curr_tb,
+        'country_factor': ctry_factor,
+        'long_term_tbill': long_term_tbill,
+    }
+
+
+def get_override_status(region: str) -> dict:
+    """
+    Check if direct overrides conflict with computed values from building blocks.
+
+    Parameters
+    ----------
+    region : str
+        Region identifier.
+
+    Returns
+    -------
+    dict
+        Status for each forecast with keys: has_override, override_value,
+        computed_value, has_conflict.
+    """
+    computed = compute_macro_preview(region)
+
+    def get_direct_override(key):
+        """Get the direct override value if set."""
+        wkey = widget_key(f"macro_{region}_{key}")
+        val = st.session_state.get(wkey)
+        default = INPUT_DEFAULTS.get(f"macro_{region}_{key}")
+
+        if val is None or (isinstance(val, float) and val != val):
+            return None, False
+
+        # Check if different from default (with tolerance)
+        if default is not None and abs(val - default) < 0.001:
+            return None, False
+
+        return val / 100, True  # Convert from percentage
+
+    def check_building_blocks_changed():
+        """Check if any building block differs from default."""
+        building_block_keys = [
+            'population_growth', 'productivity_growth', 'my_ratio',
+            'current_headline_inflation', 'long_term_inflation',
+            'current_tbill', 'country_factor'
+        ]
+        for key in building_block_keys:
+            wkey = widget_key(f"macro_{region}_{key}")
+            val = st.session_state.get(wkey)
+            default = INPUT_DEFAULTS.get(f"macro_{region}_{key}")
+
+            if val is None or (isinstance(val, float) and val != val):
+                continue
+            if default is not None and abs(val - default) > 0.001:
+                return True
+        return False
+
+    building_blocks_changed = check_building_blocks_changed()
+
+    status = {}
+    for forecast_key, computed_key in [
+        ('rgdp_growth', 'rgdp_growth'),
+        ('inflation_forecast', 'inflation'),
+        ('tbill_forecast', 'tbill')
+    ]:
+        override_val, has_override = get_direct_override(forecast_key)
+        computed_val = computed[computed_key]
+
+        # Conflict exists if: building blocks changed AND direct override set AND values differ
+        has_conflict = (
+            building_blocks_changed and
+            has_override and
+            abs(override_val - computed_val) > 0.0001
+        )
+
+        status[forecast_key] = {
+            'has_override': has_override,
+            'override_value': override_val,
+            'computed_value': computed_val,
+            'has_conflict': has_conflict,
+            'building_blocks_changed': building_blocks_changed,
+        }
+
+    return status
+
+
+def render_computed_preview(region: str, display_name: str):
+    """
+    Render the computed preview section for a region's macro tab.
+
+    Shows computed forecasts when building blocks differ from defaults,
+    and highlights conflicts with direct overrides.
+
+    Parameters
+    ----------
+    region : str
+        Region identifier (us, eurozone, japan, em).
+    display_name : str
+        Human-readable region name for display.
+    """
+    status = get_override_status(region)
+    computed = compute_macro_preview(region)
+
+    # Check if any building blocks have been modified
+    any_building_blocks_changed = any(s['building_blocks_changed'] for s in status.values())
+
+    if not any_building_blocks_changed:
+        return  # Don't show preview if no building blocks changed
+
+    st.markdown("---")
+    st.markdown("""
+    <div class="computed-preview">
+        <div class="computed-preview-header">📊 Computed from Building Blocks</div>
+    """, unsafe_allow_html=True)
+
+    # Show computed forecasts
+    forecast_labels = {
+        'rgdp_growth': ('E[Real GDP Growth]', 'rgdp_growth'),
+        'inflation_forecast': ('E[Inflation]', 'inflation'),
+        'tbill_forecast': ('E[T-Bill Rate]', 'tbill'),
+    }
+
+    for key, (label, computed_key) in forecast_labels.items():
+        s = status[key]
+        computed_val = s['computed_value'] * 100
+
+        if s['has_conflict']:
+            # Show conflict warning
+            override_val = s['override_value'] * 100
+            st.markdown(f"""
+            <div class="conflict-warning">
+                <span class="conflict-text">⚠️ <strong>{label}:</strong>
+                Computed = <strong>{computed_val:.2f}%</strong> vs Override = <strong>{override_val:.2f}%</strong></span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Resolution buttons
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(f"✅ Use Computed ({computed_val:.2f}%)", key=f"use_computed_{region}_{key}"):
+                    # Update the direct override to match computed
+                    wkey = widget_key(f"macro_{region}_{key}")
+                    st.session_state[wkey] = computed_val
+                    st.rerun()
+            with col2:
+                if st.button(f"Keep Override ({override_val:.2f}%)", key=f"keep_override_{region}_{key}"):
+                    # Just dismiss - no action needed
+                    pass
+        else:
+            # Show computed value
+            st.markdown(f"**{label}:** {computed_val:.2f}%")
+
+    # Show intermediate calculations in expander
+    with st.expander("📐 Show Calculation Details", expanded=False):
+        st.markdown("**GDP Calculation:**")
+        st.markdown(f"""
+        - Productivity Growth: {computed['productivity_growth']*100:.2f}%
+        - Demographic Effect (from MY={computed['my_ratio']:.1f}): {computed['demographic_effect']*100:.3f}%
+        - Adjustment: {computed['adjustment']*100:.2f}%
+        - **Output-per-Capita:** {computed['output_per_capita']*100:.2f}%
+        - Population Growth: {computed['population_growth']*100:.2f}%
+        - **→ E[RGDP] = {computed['rgdp_growth']*100:.2f}%**
+        """)
+
+        st.markdown("**Inflation Calculation:**")
+        st.markdown(f"""
+        - 30% × Current ({computed['current_headline_inflation']*100:.2f}%) = {0.30*computed['current_headline_inflation']*100:.2f}%
+        - 70% × Long-Term ({computed['long_term_inflation']*100:.2f}%) = {0.70*computed['long_term_inflation']*100:.2f}%
+        - **→ E[Inflation] = {computed['inflation']*100:.2f}%**
+        """)
+
+        st.markdown("**T-Bill Calculation:**")
+        st.markdown(f"""
+        - Long-Term = max(-0.75%, {computed['country_factor']*100:.2f}% + {computed['rgdp_growth']*100:.2f}% + {computed['inflation']*100:.2f}%) = {computed['long_term_tbill']*100:.2f}%
+        - 30% × Current ({computed['current_tbill']*100:.2f}%) = {0.30*computed['current_tbill']*100:.2f}%
+        - 70% × Long-Term ({computed['long_term_tbill']*100:.2f}%) = {0.70*computed['long_term_tbill']*100:.2f}%
+        - **→ E[T-Bill] = {computed['tbill']*100:.2f}%**
+        """)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 def build_overrides():
     """Build override dictionary from session state by comparing to defaults."""
@@ -972,10 +1270,13 @@ with st.sidebar:
                                value=INPUT_DEFAULTS['macro_us_current_tbill'],
                                step=0.1, key=widget_key("macro_us_current_tbill"),
                                help="Default: 3.67% | Today's 3-month UST yield")
-                st.number_input("Country Factor (%)", min_value=-2.0, max_value=2.0, 
+                st.number_input("Country Factor (%)", min_value=-2.0, max_value=2.0,
                                value=INPUT_DEFAULTS['macro_us_country_factor'],
                                step=0.1, key=widget_key("macro_us_country_factor"),
                                help="Default: 0.00% | Liquidity premium adjustment")
+
+                # Real-time computed preview
+                render_computed_preview('us', 'United States')
 
         with tab_eu:
             st.markdown("**📊 Direct Forecast Overrides:**")
@@ -1010,10 +1311,13 @@ with st.sidebar:
                                value=INPUT_DEFAULTS['macro_eurozone_current_headline_inflation'],
                                step=0.1, key=widget_key("macro_eurozone_current_headline_inflation"),
                                help="Default: 2.20%")
-                st.number_input("Long-Term Inflation Target (%)", min_value=0.0, max_value=10.0, 
+                st.number_input("Long-Term Inflation Target (%)", min_value=0.0, max_value=10.0,
                                value=INPUT_DEFAULTS['macro_eurozone_long_term_inflation'],
                                step=0.1, key=widget_key("macro_eurozone_long_term_inflation"),
                                help="Default: 2.00% (ECB target)")
+
+                # Real-time computed preview
+                render_computed_preview('eurozone', 'Eurozone')
 
         with tab_jp:
             st.markdown("**📊 Direct Forecast Overrides:**")
@@ -1046,6 +1350,9 @@ with st.sidebar:
                                step=0.1, key=widget_key("macro_japan_long_term_inflation"),
                                placeholder="1.50", help="Default: 1.50%")
 
+                # Real-time computed preview
+                render_computed_preview('japan', 'Japan')
+
         with tab_em:
             st.markdown("**📊 Direct Forecast Overrides:**")
             st.caption("Override the 10-year forecast directly")
@@ -1077,6 +1384,9 @@ with st.sidebar:
                 st.number_input("Long-Term Inflation Target (%)", min_value=0.0, max_value=10.0, value=None,
                                step=0.1, key=widget_key("macro_em_long_term_inflation"),
                                placeholder="3.50", help="Default: 3.50%")
+
+                # Real-time computed preview
+                render_computed_preview('em', 'Emerging Markets')
 
     # Bond Assumptions
     with st.expander("🏦 Bond Assumptions", expanded=False):

@@ -33,3 +33,13 @@ Thumbs.db
 # Database
 *.db
 parkview.db
+
+# Node
+node_modules/
+
+# Windows
+nul
+
+# Test files
+test_api.py
+test_auth.py

@@ -133,6 +133,24 @@ class OverrideManager:
                 return None, False
         return current, True
 
+    def has_override(self, path: str) -> bool:
+        """
+        Check if an override exists for a given path.
+
+        Parameters
+        ----------
+        path : str
+            Dot-separated path (e.g., 'macro.us.inflation_forecast').
+
+        Returns
+        -------
+        bool
+            True if an override exists at this path.
+        """
+        parts = path.split('.')
+        _, found = self._get_override_value(*parts)
+        return found
+
     def get_macro_inputs(self, region: str) -> Dict[str, TrackedValue]:
         """
         Get macroeconomic inputs with override tracking.

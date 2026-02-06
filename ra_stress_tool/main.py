@@ -14,7 +14,7 @@ from .models.bonds import GovernmentBondModel, HighYieldBondModel, EMBondModel
 from .models.equities import EquityModel, EquityRegion
 from .models.alternatives import HedgeFundModel
 from .models.currency import FXModel
-from .output import CMEResults, AssetClassResult, format_results_table, format_comparison_table
+from .output import CMEResults, AssetClassResult, MacroDependency, format_results_table, format_comparison_table
 from .config import AssetClass, BaseCurrency, ASSET_LOCAL_CURRENCY, CURRENCY_TO_MACRO_REGION
 
 
@@ -183,6 +183,7 @@ class CMEEngine:
             expected_return_real=new_real,
             components=new_components,
             inputs_used=new_inputs,
+            macro_dependencies=result.macro_dependencies,
         )
 
     def compute_fx_forecasts(self) -> Dict[str, Dict[str, float]]:
@@ -248,6 +249,149 @@ class CMEEngine:
         self._macro_cache = forecasts
         return forecasts
 
+    def _get_macro_sources(self) -> Dict[str, str]:
+        """
+        Get the source (default/override) for each macro input.
+        
+        Returns
+        -------
+        dict
+            Mapping of macro input keys to their sources.
+        """
+        sources = {}
+        
+        # Check direct forecast overrides
+        direct_fields = ['inflation_forecast', 'rgdp_growth', 'tbill_forecast']
+        regions = ['us', 'eurozone', 'japan', 'em']
+        
+        for region in regions:
+            for field in direct_fields:
+                override_key = f"macro.{region}.{field}"
+                if self.override_manager.has_override(override_key):
+                    sources[f"{region}.{field}"] = "override"
+                else:
+                    sources[f"{region}.{field}"] = "default"
+            
+            # Check building block inputs
+            building_blocks = [
+                'population_growth', 'productivity_growth', 'my_ratio',
+                'current_headline_inflation', 'long_term_inflation',
+                'current_tbill', 'country_factor'
+            ]
+            for bb in building_blocks:
+                override_key = f"macro.{region}.{bb}"
+                if self.override_manager.has_override(override_key):
+                    sources[f"{region}.{bb}"] = "override"
+                else:
+                    sources[f"{region}.{bb}"] = "default"
+        
+        # Global GDP is affected if any regional GDP is overridden
+        global_gdp_affected = any(
+            sources.get(f"{r}.rgdp_growth") == "override" or
+            sources.get(f"{r}.population_growth") == "override" or
+            sources.get(f"{r}.productivity_growth") == "override" or
+            sources.get(f"{r}.my_ratio") == "override"
+            for r in regions
+        )
+        sources["global.rgdp_growth"] = "affected_by_override" if global_gdp_affected else "computed"
+        
+        return sources
+
+    def _build_macro_dependencies(
+        self,
+        asset_type: str,
+        macro_region: str,
+        macro: Dict[str, Any],
+        macro_sources: Dict[str, str],
+        include_tbill: bool = True,
+        include_inflation: bool = True,
+        include_gdp_cap: bool = False,
+    ) -> Dict[str, MacroDependency]:
+        """
+        Build macro dependency tracking for an asset.
+        
+        Parameters
+        ----------
+        asset_type : str
+            Type of asset for description context ('bond', 'equity', 'liquidity', 'hedge_fund').
+        macro_region : str
+            The macro region used for this asset.
+        macro : dict
+            The macro forecasts dictionary.
+        macro_sources : dict
+            The macro sources dictionary.
+        include_tbill : bool
+            Whether T-Bill rate is a dependency.
+        include_inflation : bool
+            Whether inflation is a dependency.
+        include_gdp_cap : bool
+            Whether global GDP cap is a dependency (for equities).
+            
+        Returns
+        -------
+        dict
+            MacroDependency objects keyed by dependency name.
+        """
+        deps = {}
+        region_macro = macro[macro_region]
+        
+        if include_tbill:
+            # T-Bill dependency
+            tbill_source = macro_sources.get(f"{macro_region}.tbill_forecast", "computed")
+            # T-Bill is affected if GDP or inflation are overridden (since long-term T-Bill = GDP + Inflation)
+            if tbill_source == "default":
+                gdp_source = macro_sources.get(f"{macro_region}.rgdp_growth", "default")
+                inf_source = macro_sources.get(f"{macro_region}.inflation_forecast", "default")
+                if gdp_source == "override" or inf_source == "override":
+                    tbill_source = "affected_by_override"
+            
+            if asset_type == 'liquidity':
+                impact = f"T-Bill rate is the direct cash return ({region_macro['tbill_rate']*100:.2f}%)"
+            elif asset_type == 'bond':
+                impact = f"Base rate for yield calculation"
+            else:
+                impact = f"Risk-free rate component"
+                
+            deps['tbill'] = MacroDependency(
+                macro_input=f"{macro_region}.tbill_forecast",
+                value_used=region_macro['tbill_rate'],
+                source=tbill_source,
+                affects=['yield', 'expected_return_nominal'] if asset_type == 'bond' else ['expected_return_nominal'],
+                impact_description=impact,
+            )
+        
+        if include_inflation:
+            inf_source = macro_sources.get(f"{macro_region}.inflation_forecast", "default")
+            
+            if asset_type == 'equity':
+                impact = f"Added to real return for nominal ({region_macro['inflation']*100:.2f}%)"
+            elif asset_type == 'bond':
+                impact = f"Subtracted from nominal for real return"
+            else:
+                impact = f"Inflation forecast for region"
+                
+            deps['inflation'] = MacroDependency(
+                macro_input=f"{macro_region}.inflation_forecast",
+                value_used=region_macro['inflation'],
+                source=inf_source,
+                affects=['expected_return_nominal'] if asset_type == 'equity' else ['expected_return_real'],
+                impact_description=impact,
+            )
+        
+        if include_gdp_cap:
+            global_rgdp = macro['global']['rgdp_growth']
+            gdp_source = macro_sources.get("global.rgdp_growth", "computed")
+            
+            deps['global_gdp_cap'] = MacroDependency(
+                macro_input="global.rgdp_growth",
+                value_used=global_rgdp,
+                source=gdp_source,
+                affects=['real_eps_growth'],
+                impact_description=f"Caps EPS growth at {global_rgdp*100:.2f}% (GDP-weighted global average)",
+            )
+        
+        return deps
+
     def compute_liquidity_return(self) -> AssetClassResult:
         """
         Compute expected return for liquidity (cash/T-Bills).
@@ -260,6 +404,7 @@ class CMEEngine:
             Liquidity return result.
         """
         macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
 
         # Use base currency region
         base_region = self._get_base_currency_region()
@@ -267,6 +412,17 @@ class CMEEngine:
 
         nominal_return = region_macro['tbill_rate']
         real_return = nominal_return - region_macro['inflation']
+
+        # Build macro dependencies
+        macro_deps = self._build_macro_dependencies(
+            asset_type='liquidity',
+            macro_region=base_region,
+            macro=macro,
+            macro_sources=macro_sources,
+            include_tbill=True,
+            include_inflation=True,
+            include_gdp_cap=False,
+        )
 
         return AssetClassResult(
             asset_class=self.ASSET_NAMES[AssetClass.LIQUIDITY],
@@ -280,6 +436,7 @@ class CMEEngine:
                                   'source': 'default'},
                 'base_currency': {'value': self.base_currency.value, 'source': 'computed'},
             },
+            macro_dependencies=macro_deps,
         )
 
     def compute_bonds_global_return(self) -> AssetClassResult:
@@ -292,6 +449,7 @@ class CMEEngine:
             Government bond return result.
         """
         macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
 
         # Use weighted average of DM T-Bill and inflation
         # Simplified: use US as proxy for global DM
@@ -300,6 +458,17 @@ class CMEEngine:
         forecast = self.gov_bond_model.compute_return(
             tbill_forecast=us_macro['tbill_rate'],
             inflation_forecast=us_macro['inflation'],
+        )
+
+        # Build macro dependencies
+        macro_deps = self._build_macro_dependencies(
+            asset_type='bond',
+            macro_region='us',
+            macro=macro,
+            macro_sources=macro_sources,
+            include_tbill=True,
+            include_inflation=True,
+            include_gdp_cap=False,
         )
 
         return AssetClassResult(
@@ -313,6 +482,7 @@ class CMEEngine:
                 'credit_loss': forecast.credit_loss,
             },
             inputs_used=self._extract_bond_inputs(forecast),
+            macro_dependencies=macro_deps,
         )
 
     def compute_bonds_hy_return(self) -> AssetClassResult:
@@ -325,11 +495,23 @@ class CMEEngine:
             High yield bond return result.
         """
         macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
         us_macro = macro['us']
 
         forecast = self.hy_bond_model.compute_return(
             tbill_forecast=us_macro['tbill_rate'],
             inflation_forecast=us_macro['inflation'],
+        )
+
+        # Build macro dependencies
+        macro_deps = self._build_macro_dependencies(
+            asset_type='bond',
+            macro_region='us',
+            macro=macro,
+            macro_sources=macro_sources,
+            include_tbill=True,
+            include_inflation=True,
+            include_gdp_cap=False,
         )
 
         return AssetClassResult(
@@ -343,6 +525,7 @@ class CMEEngine:
                 'credit_loss': forecast.credit_loss,
             },
             inputs_used=self._extract_bond_inputs(forecast),
+            macro_dependencies=macro_deps,
         )
 
     def compute_bonds_em_return(self) -> AssetClassResult:
@@ -359,6 +542,7 @@ class CMEEngine:
             EM bond return result.
         """
         macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
         us_macro = macro['us']
 
         # For hard currency (USD-denominated) bonds:
@@ -372,6 +556,17 @@ class CMEEngine:
             hard_currency=True,  # USD-denominated bonds
         )
 
+        # Build macro dependencies (uses US macro for hard currency bonds)
+        macro_deps = self._build_macro_dependencies(
+            asset_type='bond',
+            macro_region='us',
+            macro=macro,
+            macro_sources=macro_sources,
+            include_tbill=True,
+            include_inflation=True,
+            include_gdp_cap=False,
+        )
+
         return AssetClassResult(
             asset_class=self.ASSET_NAMES[AssetClass.BONDS_EM],
             expected_return_nominal=forecast.expected_return_nominal,
@@ -383,6 +578,7 @@ class CMEEngine:
                 'credit_loss': forecast.credit_loss,
             },
             inputs_used=self._extract_bond_inputs(forecast),
+            macro_dependencies=macro_deps,
         )
 
     def compute_equity_return(self, region: EquityRegion) -> AssetClassResult:
@@ -400,6 +596,7 @@ class CMEEngine:
             Equity return result.
         """
         macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
 
         # Map equity region to macro region
         region_map = {
@@ -427,6 +624,17 @@ class CMEEngine:
             EquityRegion.EM: AssetClass.EQUITY_EM,
         }
 
+        # Build macro dependencies (equities use regional inflation + global GDP cap)
+        macro_deps = self._build_macro_dependencies(
+            asset_type='equity',
+            macro_region=macro_region,
+            macro=macro,
+            macro_sources=macro_sources,
+            include_tbill=False,
+            include_inflation=True,
+            include_gdp_cap=True,
+        )
+
         return AssetClassResult(
             asset_class=self.ASSET_NAMES[region_to_asset[region]],
             expected_return_nominal=forecast.expected_return_nominal,
@@ -437,6 +645,7 @@ class CMEEngine:
                 'valuation_change': forecast.valuation_change,
             },
             inputs_used=self._extract_equity_inputs(forecast),
+            macro_dependencies=macro_deps,
         )
 
     def compute_absolute_return(self) -> AssetClassResult:
@@ -451,6 +660,7 @@ class CMEEngine:
             Hedge fund return result.
         """
         macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
 
         # Use base currency region for T-Bill and inflation
         base_region = self._get_base_currency_region()
@@ -473,6 +683,30 @@ class CMEEngine:
         inputs_used = self._extract_hf_inputs(forecast)
         inputs_used['base_currency'] = {'value': self.base_currency.value, 'source': 'computed'}
 
+        # Build macro dependencies
+        macro_deps = self._build_macro_dependencies(
+            asset_type='hedge_fund',
+            macro_region=base_region,
+            macro=macro,
+            macro_sources=macro_sources,
+            include_tbill=True,
+            include_inflation=True,
+            include_gdp_cap=False,
+        )
+        
+        # Also add dependency on US equity return (for market factor)
+        us_inf_source = macro_sources.get("us.inflation_forecast", "default")
+        global_gdp_source = macro_sources.get("global.rgdp_growth", "computed")
+        equity_affected = us_inf_source == "override" or global_gdp_source in ["override", "affected_by_override"]
+        
+        macro_deps['us_equity_return'] = MacroDependency(
+            macro_input="us.equity_return",
+            value_used=equity_forecast.expected_return_nominal,
+            source="affected_by_override" if equity_affected else "computed",
+            affects=['factor_return'],
+            impact_description=f"US equity return ({equity_forecast.expected_return_nominal*100:.2f}%) used for market factor premium",
+        )
+
         return AssetClassResult(
             asset_class=self.ASSET_NAMES[AssetClass.ABSOLUTE_RETURN],
             expected_return_nominal=forecast.expected_return_nominal,
@@ -483,6 +717,7 @@ class CMEEngine:
                 'trading_alpha': forecast.trading_alpha,
             },
             inputs_used=inputs_used,
+            macro_dependencies=macro_deps,
         )
 
     def compute_all_returns(self, scenario_name: str = "Base Case") -> CMEResults:

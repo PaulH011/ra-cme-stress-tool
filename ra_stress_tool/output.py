@@ -5,8 +5,18 @@ Provides formatted output comparing RA defaults with stressed scenarios.
 """
 
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
+
+
+@dataclass
+class MacroDependency:
+    """Tracks how a macro input affects an asset calculation."""
+    macro_input: str           # e.g., "us.inflation_forecast"
+    value_used: float          # The actual value used in calculation
+    source: str                # "default" | "override" | "computed" | "affected_by_override"
+    affects: List[str]         # Which components this affects, e.g., ["expected_return_nominal"]
+    impact_description: str    # Human-readable description of how it affects the calculation
 
 
 @dataclass
@@ -17,6 +27,7 @@ class AssetClassResult:
     expected_return_real: float
     components: Dict[str, float]
     inputs_used: Dict[str, Dict[str, Any]]
+    macro_dependencies: Dict[str, MacroDependency] = field(default_factory=dict)
 
 
 @dataclass
@@ -204,6 +215,16 @@ def results_to_dict(results: CMEResults) -> Dict[str, Any]:
                 'expected_return_real': r.expected_return_real,
                 'components': r.components,
                 'inputs_used': r.inputs_used,
+                'macro_dependencies': {
+                    key: {
+                        'macro_input': dep.macro_input,
+                        'value_used': dep.value_used,
+                        'source': dep.source,
+                        'affects': dep.affects,
+                        'impact_description': dep.impact_description,
+                    }
+                    for key, dep in r.macro_dependencies.items()
+                } if r.macro_dependencies else {},
             }
             for name, r in results.results.items()
         },
