@@ -10,7 +10,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, BookOpen, Calculator, TrendingUp, Building2, BarChart3, Target } from 'lucide-react';
+import { ArrowLeft, BookOpen, Calculator, TrendingUp, Building2, BarChart3, Target, Table } from 'lucide-react';
 
 export default function MethodologyPage() {
   return (
@@ -40,7 +40,7 @@ export default function MethodologyPage() {
           <CardTitle className="text-lg">Quick Navigation</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2 text-sm">
             <a href="#overview" className="text-blue-600 hover:underline">Overview</a>
             <a href="#base-currency" className="text-blue-600 hover:underline">Base Currency & FX</a>
             <a href="#macro-models" className="text-blue-600 hover:underline">Macro Models</a>
@@ -48,6 +48,7 @@ export default function MethodologyPage() {
             <a href="#bonds" className="text-blue-600 hover:underline">Bonds</a>
             <a href="#equity" className="text-blue-600 hover:underline">Equity</a>
             <a href="#absolute-return" className="text-blue-600 hover:underline">Absolute Return</a>
+            <a href="#default-assumptions" className="text-blue-600 hover:underline">Default Assumptions</a>
             <a href="#faq" className="text-blue-600 hover:underline">FAQ</a>
           </div>
         </CardContent>
@@ -535,6 +536,265 @@ export default function MethodologyPage() {
             </p>
           </CardContent>
         </Card>
+      </section>
+
+      {/* Default Assumptions */}
+      <section id="default-assumptions" className="mb-12">
+        <h2 className="text-2xl font-bold text-slate-800 border-b-2 border-slate-800 pb-2 mb-4 flex items-center gap-2">
+          <Table className="h-6 w-6" />
+          Default Assumptions
+        </h2>
+        <p className="mb-6 text-slate-600">
+          Complete list of all default input assumptions used across the tool. These values are based on current market data
+          and long-term estimates as of January 2026. Users can override any of these inputs in the dashboard.
+        </p>
+
+        <Tabs defaultValue="macro-defaults" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="macro-defaults">Macro</TabsTrigger>
+            <TabsTrigger value="bonds-defaults">Bonds</TabsTrigger>
+            <TabsTrigger value="equity-defaults">Equity</TabsTrigger>
+            <TabsTrigger value="alt-defaults">Absolute Return</TabsTrigger>
+            <TabsTrigger value="vol-defaults">Volatility</TabsTrigger>
+          </TabsList>
+
+          {/* Macro Defaults */}
+          <TabsContent value="macro-defaults" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Macro Economic Assumptions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <h4 className="font-semibold mb-3">Building Block Inputs</h4>
+                <div className="overflow-x-auto mb-6">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-white">
+                        <th className="p-2 text-left">Input</th>
+                        <th className="p-2 text-right">US</th>
+                        <th className="p-2 text-right">Eurozone</th>
+                        <th className="p-2 text-right">Japan</th>
+                        <th className="p-2 text-right">EM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Current Headline Inflation</td><td className="p-2 text-right">2.50%</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">2.00%</td><td className="p-2 text-right">4.50%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Long-Term Inflation Target</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">2.00%</td><td className="p-2 text-right">1.50%</td><td className="p-2 text-right">3.50%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Current T-Bill Rate</td><td className="p-2 text-right">3.67%</td><td className="p-2 text-right">2.04%</td><td className="p-2 text-right">0.75%</td><td className="p-2 text-right">6.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Country Factor</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">0.00%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Population Growth</td><td className="p-2 text-right">0.40%</td><td className="p-2 text-right">0.10%</td><td className="p-2 text-right">-0.50%</td><td className="p-2 text-right">1.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Productivity Growth</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">1.00%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">2.50%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">MY Ratio (Middle/Young)</td><td className="p-2 text-right">2.10</td><td className="p-2 text-right">2.30</td><td className="p-2 text-right">2.50</td><td className="p-2 text-right">1.50</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h4 className="font-semibold mb-3">Computed 10-Year Forecasts (from building blocks)</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-blue-800 text-white">
+                        <th className="p-2 text-left">Forecast</th>
+                        <th className="p-2 text-right">US</th>
+                        <th className="p-2 text-right">Eurozone</th>
+                        <th className="p-2 text-right">Japan</th>
+                        <th className="p-2 text-right">EM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">E[Inflation] (10yr avg)</td><td className="p-2 text-right">2.29%</td><td className="p-2 text-right">2.06%</td><td className="p-2 text-right">1.65%</td><td className="p-2 text-right">3.80%</td></tr>
+                      <tr className="border-b bg-blue-50"><td className="p-2 font-medium">E[Real GDP Growth] (10yr avg)</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">0.30%</td><td className="p-2 text-right">3.00%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">E[T-Bill Rate] (10yr avg)</td><td className="p-2 text-right">3.79%</td><td className="p-2 text-right">2.70%</td><td className="p-2 text-right">1.00%</td><td className="p-2 text-right">5.50%</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-blue-50 border-blue-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-blue-700">
+                      <strong>Note:</strong> The computed forecasts are derived from the building block inputs using the macro models
+                      (30/70 weighting for inflation and T-Bill, GDP from population + productivity + demographics).
+                      Users can override these forecasts directly, which takes priority over the building block computation.
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Bond Defaults */}
+          <TabsContent value="bonds-defaults" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Bond Default Assumptions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-white">
+                        <th className="p-2 text-left">Input</th>
+                        <th className="p-2 text-right">Bonds Global</th>
+                        <th className="p-2 text-right">Bonds HY</th>
+                        <th className="p-2 text-right">Bonds EM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Current Yield</td><td className="p-2 text-right">3.50%</td><td className="p-2 text-right">7.50%</td><td className="p-2 text-right">5.77%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Duration (years)</td><td className="p-2 text-right">7.0</td><td className="p-2 text-right">4.0</td><td className="p-2 text-right">5.5</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Current Term Premium</td><td className="p-2 text-right">1.00%</td><td className="p-2 text-right">--</td><td className="p-2 text-right">1.50%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Fair Term Premium</td><td className="p-2 text-right">1.50%</td><td className="p-2 text-right">--</td><td className="p-2 text-right">2.00%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Credit Spread</td><td className="p-2 text-right">--</td><td className="p-2 text-right">2.71%</td><td className="p-2 text-right">--</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Fair Credit Spread</td><td className="p-2 text-right">--</td><td className="p-2 text-right">4.00%</td><td className="p-2 text-right">--</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Default Rate</td><td className="p-2 text-right">--</td><td className="p-2 text-right">5.50%</td><td className="p-2 text-right">2.80%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Recovery Rate</td><td className="p-2 text-right">--</td><td className="p-2 text-right">40.0%</td><td className="p-2 text-right">55.0%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Annual Credit Loss</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">3.30%</td><td className="p-2 text-right">1.26%</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-amber-50 border-amber-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-amber-700">
+                      <strong>Credit Loss Formula:</strong> Annual Credit Loss = Default Rate x (1 - Recovery Rate).
+                      Bonds Global (government bonds) are assumed default-free.
+                      Bonds EM uses US macro assumptions since they are USD-denominated hard currency bonds.
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Equity Defaults */}
+          <TabsContent value="equity-defaults" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Equity Default Assumptions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-white">
+                        <th className="p-2 text-left">Input</th>
+                        <th className="p-2 text-right">US</th>
+                        <th className="p-2 text-right">Europe</th>
+                        <th className="p-2 text-right">Japan</th>
+                        <th className="p-2 text-right">EM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Dividend Yield</td><td className="p-2 text-right">1.13%</td><td className="p-2 text-right">3.00%</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">3.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Current CAEY (1/CAPE)</td><td className="p-2 text-right">2.48%</td><td className="p-2 text-right">5.50%</td><td className="p-2 text-right">5.50%</td><td className="p-2 text-right">6.50%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Fair CAEY</td><td className="p-2 text-right">5.00%</td><td className="p-2 text-right">5.50%</td><td className="p-2 text-right">5.00%</td><td className="p-2 text-right">6.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Implied CAPE (Current)</td><td className="p-2 text-right">40.3x</td><td className="p-2 text-right">18.2x</td><td className="p-2 text-right">18.2x</td><td className="p-2 text-right">15.4x</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Implied CAPE (Fair)</td><td className="p-2 text-right">20.0x</td><td className="p-2 text-right">18.2x</td><td className="p-2 text-right">20.0x</td><td className="p-2 text-right">16.7x</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Country Real EPS Growth</td><td className="p-2 text-right">1.80%</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">3.00%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Regional EPS Growth</td><td className="p-2 text-right">1.60%</td><td className="p-2 text-right">1.60%</td><td className="p-2 text-right">1.60%</td><td className="p-2 text-right">2.80%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Blended EPS Growth</td><td className="p-2 text-right">1.70%</td><td className="p-2 text-right">1.40%</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">2.90%</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-green-50 border-green-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-green-700">
+                      <strong>Valuation Impact:</strong> US equities have the largest valuation headwind (Current CAEY 2.48% vs Fair 5.00%),
+                      implying the market expects CAPE to compress from ~40x to ~20x over 20 years.
+                      Europe is at fair value (no headwind/tailwind). EM has a slight tailwind (6.50% vs fair 6.00%).
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Absolute Return Defaults */}
+          <TabsContent value="alt-defaults" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Absolute Return (Hedge Fund) Default Assumptions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-white">
+                        <th className="p-2 text-left">Factor</th>
+                        <th className="p-2 text-right">Beta Exposure</th>
+                        <th className="p-2 text-right">Historical Premium</th>
+                        <th className="p-2 text-right">Contribution</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Market (MKT-RF)</td><td className="p-2 text-right">0.30</td><td className="p-2 text-right">E[Equity] - E[T-Bill]</td><td className="p-2 text-right">Dynamic</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Size (SMB)</td><td className="p-2 text-right">0.10</td><td className="p-2 text-right">2.00%</td><td className="p-2 text-right">0.20%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Value (HML)</td><td className="p-2 text-right">0.05</td><td className="p-2 text-right">3.00%</td><td className="p-2 text-right">0.15%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Profitability (RMW)</td><td className="p-2 text-right">0.05</td><td className="p-2 text-right">2.50%</td><td className="p-2 text-right">0.13%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Investment (CMA)</td><td className="p-2 text-right">0.05</td><td className="p-2 text-right">2.50%</td><td className="p-2 text-right">0.13%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Momentum (UMD)</td><td className="p-2 text-right">0.10</td><td className="p-2 text-right">6.00%</td><td className="p-2 text-right">0.60%</td></tr>
+                      <tr className="border-b font-semibold"><td className="p-2">Trading Alpha</td><td className="p-2 text-right">--</td><td className="p-2 text-right">~2.00% (historical)</td><td className="p-2 text-right">1.00%</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-slate-50 border-slate-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-slate-700">
+                      <strong>Total Return Formula:</strong> E[HF Return] = E[T-Bill] + Market Beta Contribution + Factor Premia + Trading Alpha.
+                      Factor premia use 50% of historical estimates. Trading alpha of 1.00% = 50% haircut on ~2% historical alpha
+                      to account for alpha decay, survivorship bias, and capacity constraints.
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Volatility Defaults */}
+          <TabsContent value="vol-defaults" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Expected Volatility (Long-Term Historical Estimates)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-white">
+                        <th className="p-2 text-left">Asset Class</th>
+                        <th className="p-2 text-right">Expected Volatility</th>
+                        <th className="p-2 text-left">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Liquidity</td><td className="p-2 text-right">1.0%</td><td className="p-2 text-slate-600">Cash / T-Bills, minimal volatility</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Bonds Global</td><td className="p-2 text-right">6.0%</td><td className="p-2 text-slate-600">DM government bonds, duration-driven</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Bonds HY</td><td className="p-2 text-right">10.0%</td><td className="p-2 text-slate-600">Credit spread volatility adds to rate vol</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Bonds EM</td><td className="p-2 text-right">12.0%</td><td className="p-2 text-slate-600">EM sovereign credit + rate volatility</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Equity US</td><td className="p-2 text-right">16.0%</td><td className="p-2 text-slate-600">S&P 500 long-term historical</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Equity Europe</td><td className="p-2 text-right">18.0%</td><td className="p-2 text-slate-600">MSCI Europe, slightly higher than US</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Equity Japan</td><td className="p-2 text-right">18.0%</td><td className="p-2 text-slate-600">MSCI Japan, currency adds vol for foreign investors</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Equity EM</td><td className="p-2 text-right">24.0%</td><td className="p-2 text-slate-600">MSCI EM, includes FX and political risk</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Absolute Return</td><td className="p-2 text-right">8.0%</td><td className="p-2 text-slate-600">Diversified hedge fund composite</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-blue-50 border-blue-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-blue-700">
+                      <strong>Note:</strong> These volatility estimates are used for the Risk-Return Profile chart.
+                      They represent long-term annualised standard deviations and are not currently user-adjustable.
+                      Volatility figures are based on historical data and may not reflect future conditions.
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </section>
 
       {/* FAQ */}
