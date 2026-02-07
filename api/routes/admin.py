@@ -8,6 +8,7 @@ Provides:
 """
 
 import os
+import re
 import json
 import uuid
 from datetime import datetime, timezone
@@ -147,7 +148,11 @@ async def research_defaults(
     prompt = f"""You are a market data research assistant for a capital market expectations (CME) model.
 Today's date is {today}.
 
-For each of the following market assumptions, provide the most current value based on publicly available data.
+IMPORTANT: You have access to web search. Use it to look up the CURRENT values for these market assumptions.
+Search financial data sources like FRED, BLS.gov, ECB, BOJ, IMF, multpl.com, Trading Economics, etc.
+Do NOT rely solely on your training data — actually search for the latest numbers.
+
+For each of the following market assumptions, provide the most current value based on your web research.
 Return your response as a valid JSON object with the exact keys provided.
 
 For each assumption key, return an object with:
@@ -179,31 +184,73 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
   ...
 }}"""
 
-    # Call Anthropic Claude
+    # Call Anthropic Claude with web search enabled
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=8000,
-            temperature=0.1,
-            system="You are a financial data research assistant. Always return valid JSON and nothing else -- no markdown fences, no explanation, just the JSON object.",
-            messages=[
-                {"role": "user", "content": prompt},
-            ],
+        messages = [{"role": "user", "content": prompt}]
+        system_prompt = (
+            "You are a financial data research assistant. "
+            "Use the web search tool to look up CURRENT market data from authoritative sources "
+            "(FRED, BLS, ECB, BOJ, IMF, Bloomberg, MSCI, etc.) before compiling your response. "
+            "Search for the most recent values — do NOT rely on your training data alone. "
+            "After researching, return ONLY valid JSON and nothing else — no markdown fences, no explanation, just the JSON object."
         )
 
-        ai_response_text = response.content[0].text
+        # Loop to handle pause_turn (long-running searches may pause)
+        response = None
+        for _attempt in range(5):  # max 5 continuations
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=16000,
+                temperature=0.1,
+                system=system_prompt,
+                messages=messages,
+                tools=[{
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": 25,
+                }],
+            )
 
-        # Strip markdown code fences if Claude wraps the JSON
+            if response.stop_reason == "pause_turn":
+                # Claude's turn was paused — send response back to continue
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": "Please continue where you left off and return the complete JSON."})
+            else:
+                break
+
+        # Extract text from response content blocks
+        # With web search, response contains interleaved text, tool_use, and tool_result blocks.
+        # We need to find the text block(s) containing the JSON.
+        all_text_parts = []
+        for block in response.content:
+            if hasattr(block, "type") and block.type == "text" and hasattr(block, "text"):
+                all_text_parts.append(block.text)
+
+        ai_response_text = "\n".join(all_text_parts)
+
+        # Try to extract JSON from the response text
+        # Claude may include explanatory text before/after the JSON when using web search
         cleaned = ai_response_text.strip()
-        if cleaned.startswith("```"):
-            # Remove opening fence (```json or ```)
-            first_newline = cleaned.index("\n")
-            cleaned = cleaned[first_newline + 1:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3].strip()
+
+        # Strip markdown code fences if present
+        if "```" in cleaned:
+            # Find JSON block within fences
+            fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", cleaned, re.DOTALL)
+            if fence_match:
+                cleaned = fence_match.group(1).strip()
+
+        # If the response has text before/after the JSON object, extract just the JSON
+        if not cleaned.startswith("{"):
+            brace_start = cleaned.find("{")
+            if brace_start != -1:
+                cleaned = cleaned[brace_start:]
+        if not cleaned.endswith("}"):
+            brace_end = cleaned.rfind("}")
+            if brace_end != -1:
+                cleaned = cleaned[: brace_end + 1]
 
         ai_suggestions = json.loads(cleaned)
 

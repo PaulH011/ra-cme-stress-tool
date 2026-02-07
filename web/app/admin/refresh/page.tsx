@@ -349,7 +349,8 @@ export default function AdminRefreshPage() {
               Researching Market Data...
             </h2>
             <p className="text-sm text-slate-500">
-              AI is looking up current values for all assumptions. This may take 30-60 seconds.
+              AI is searching the web for current market data across all assumptions.
+              This may take 60-90 seconds as Claude searches multiple financial data sources.
             </p>
           </CardContent>
         </Card>

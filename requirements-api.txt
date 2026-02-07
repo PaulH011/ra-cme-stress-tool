@@ -22,4 +22,4 @@ pandas>=2.0.0
 supabase>=2.3.0
 
 # AI research (for quarterly assumption refresh)
-anthropic>=0.18.0
+anthropic>=0.30.0
