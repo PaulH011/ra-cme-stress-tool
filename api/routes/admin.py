@@ -10,6 +10,7 @@ Provides:
 import os
 import re
 import json
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
@@ -104,37 +105,52 @@ def _unflatten_key(key: str, value: float, target: Dict[str, Any]):
     current[parts[-1]] = value
 
 
-# ---- Endpoints ----
-
-@router.post("/research-defaults")
-async def research_defaults(
-    request: ResearchRequest = ResearchRequest(),
-    x_user_email: Optional[str] = Header(None),
-):
+def _split_into_batches(data_sources: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Use Claude AI to research current market values for all assumptions.
+    Split data sources into batches by category to stay under rate limits.
 
-    Returns a comparison payload with current defaults, AI suggestions,
-    differences, and source citations.
+    Produces ~4 batches of 15-20 assumptions each:
+      1. Macro DM  (US + Eurozone)   ~20
+      2. Macro Other (Japan + EM)    ~20
+      3. Bonds (Global + HY + EM)    ~16
+      4. Equity + Alternatives       ~27
     """
-    email = _verify_super_user(x_user_email)
+    groups: Dict[str, Dict[str, Any]] = {}
+    for key, info in data_sources.items():
+        parts = key.split(".")
+        if parts[0] == "macro":
+            batch_key = "macro_dm" if parts[1] in ("us", "eurozone") else "macro_other"
+        elif parts[0] == "bonds":
+            batch_key = "bonds"
+        else:
+            # equity.* and absolute_return.* grouped together
+            batch_key = "equity_alts"
 
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=503, detail="Anthropic API key not configured")
+        if batch_key not in groups:
+            groups[batch_key] = {}
+        groups[batch_key][key] = info
 
-    # Load data sources config
-    data_sources = _load_data_sources()
+    # Return in a stable order
+    order = ["macro_dm", "macro_other", "bonds", "equity_alts"]
+    return [groups[k] for k in order if k in groups]
 
-    # Load current defaults
-    from api.routes.defaults import get_current_defaults
-    current_defaults = get_current_defaults()
-    current_flat = _get_current_defaults_flat(current_defaults)
 
-    # Build the prompt
-    today = datetime.now(timezone.utc).strftime("%B %d, %Y")
-
+def _research_single_batch(
+    client,
+    batch_sources: Dict[str, Any],
+    current_flat: Dict[str, float],
+    today: str,
+    system_prompt: str,
+    max_retries: int = 2,
+) -> Dict[str, Any]:
+    """
+    Research a single batch of assumptions using Claude with web search.
+    Returns the parsed JSON dict of suggestions.
+    Retries on rate-limit (429) errors with a 60-second wait.
+    """
+    # Build the prompt for this batch
     assumptions_text = ""
-    for key, source_info in data_sources.items():
+    for key, source_info in batch_sources.items():
         current_val = current_flat.get(key, "N/A")
         assumptions_text += (
             f"\n- Key: \"{key}\"\n"
@@ -145,6 +161,7 @@ async def research_defaults(
             f"  Source: {source_info['source_description']}\n"
         )
 
+    batch_count = len(batch_sources)
     prompt = f"""You are a market data research assistant for a capital market expectations (CME) model.
 Today's date is {today}.
 
@@ -152,7 +169,7 @@ IMPORTANT: You have access to web search. Use it to look up the CURRENT values f
 Search financial data sources like FRED, BLS.gov, ECB, BOJ, IMF, multpl.com, Trading Economics, etc.
 Do NOT rely solely on your training data — actually search for the latest numbers.
 
-For each of the following market assumptions, provide the most current value based on your web research.
+For each of the following {batch_count} market assumptions, provide the most current value based on your web research.
 Return your response as a valid JSON object with the exact keys provided.
 
 For each assumption key, return an object with:
@@ -169,7 +186,7 @@ IMPORTANT:
 - Use the most recent available data
 - If you cannot find a reliable current value, use the current model value and set confidence to "low"
 
-Here are all the assumptions to research:
+Here are the assumptions to research:
 {assumptions_text}
 
 Return ONLY valid JSON (no markdown, no code fences, no explanation) with the structure:
@@ -184,109 +201,174 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
   ...
 }}"""
 
-    # Call Anthropic Claude with web search enabled
+    tool_def = {
+        "type": "web_search_20250305",
+        "name": "web_search",
+        "max_uses": 10,
+    }
+
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            all_text_parts: List[str] = []
+
+            # Loop to handle pause_turn
+            response = None
+            for _cont in range(3):
+                response = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=8000,
+                    temperature=0.1,
+                    system=system_prompt,
+                    messages=messages,
+                    tools=[tool_def],
+                )
+
+                # Collect text from this response
+                for block in response.content:
+                    if hasattr(block, "type") and block.type == "text" and hasattr(block, "text"):
+                        all_text_parts.append(block.text)
+
+                if response.stop_reason != "pause_turn":
+                    break
+
+                # Clean orphaned server_tool_use blocks for continuation
+                tool_use_ids = set()
+                result_ids = set()
+                for block in response.content:
+                    btype = getattr(block, "type", None)
+                    if btype == "server_tool_use":
+                        tool_use_ids.add(getattr(block, "id", None))
+                    elif btype == "web_search_tool_result":
+                        result_ids.add(getattr(block, "tool_use_id", None))
+
+                unmatched_ids = tool_use_ids - result_ids
+                if unmatched_ids:
+                    cleaned_content = [
+                        block for block in response.content
+                        if not (
+                            getattr(block, "type", None) == "server_tool_use"
+                            and getattr(block, "id", None) in unmatched_ids
+                        )
+                    ]
+                else:
+                    cleaned_content = list(response.content)
+
+                if not cleaned_content:
+                    break
+
+                messages.append({"role": "assistant", "content": cleaned_content})
+                messages.append({
+                    "role": "user",
+                    "content": "Please continue where you left off and return the complete JSON.",
+                })
+
+            # Extract JSON from collected text
+            ai_response_text = "\n".join(all_text_parts)
+            cleaned = ai_response_text.strip()
+
+            # Strip markdown code fences
+            if "```" in cleaned:
+                fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", cleaned, re.DOTALL)
+                if fence_match:
+                    cleaned = fence_match.group(1).strip()
+
+            # Extract JSON object
+            if not cleaned.startswith("{"):
+                brace_start = cleaned.find("{")
+                if brace_start != -1:
+                    cleaned = cleaned[brace_start:]
+            if not cleaned.endswith("}"):
+                brace_end = cleaned.rfind("}")
+                if brace_end != -1:
+                    cleaned = cleaned[: brace_end + 1]
+
+            return json.loads(cleaned)
+
+        except Exception as e:
+            last_error = e
+            error_str = str(e)
+            # Retry on rate limit errors
+            if "rate_limit" in error_str or "429" in error_str:
+                if attempt < max_retries:
+                    print(f"[admin] Rate limited on batch, waiting 60s before retry (attempt {attempt + 1})...")
+                    time.sleep(60)
+                    continue
+            # Non-retryable error — raise immediately
+            raise
+
+    # All retries exhausted
+    raise last_error  # type: ignore[misc]
+
+
+# ---- Endpoints ----
+
+@router.post("/research-defaults")
+async def research_defaults(
+    request: ResearchRequest = ResearchRequest(),
+    x_user_email: Optional[str] = Header(None),
+):
+    """
+    Use Claude AI to research current market values for all assumptions.
+
+    Splits assumptions into batches (by category) and researches each
+    batch separately to stay under API rate limits. Results are merged
+    into a single comparison payload.
+    """
+    email = _verify_super_user(x_user_email)
+
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=503, detail="Anthropic API key not configured")
+
+    # Load data sources config
+    data_sources = _load_data_sources()
+
+    # Load current defaults
+    from api.routes.defaults import get_current_defaults
+    current_defaults = get_current_defaults()
+    current_flat = _get_current_defaults_flat(current_defaults)
+
+    today = datetime.now(timezone.utc).strftime("%B %d, %Y")
+
+    system_prompt = (
+        "You are a financial data research assistant. "
+        "Use the web search tool to look up CURRENT market data from authoritative sources "
+        "(FRED, BLS, ECB, BOJ, IMF, Bloomberg, MSCI, etc.) before compiling your response. "
+        "Search for the most recent values — do NOT rely on your training data alone. "
+        "After researching, return ONLY valid JSON and nothing else — no markdown fences, no explanation, just the JSON object."
+    )
+
+    # Split into batches to avoid rate limits (30K tokens/min on basic tier)
+    batches = _split_into_batches(data_sources)
+    batch_labels = ["Macro DM", "Macro Japan+EM", "Bonds", "Equity+Alts"]
+
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-        messages = [{"role": "user", "content": prompt}]
-        system_prompt = (
-            "You are a financial data research assistant. "
-            "Use the web search tool to look up CURRENT market data from authoritative sources "
-            "(FRED, BLS, ECB, BOJ, IMF, Bloomberg, MSCI, etc.) before compiling your response. "
-            "Search for the most recent values — do NOT rely on your training data alone. "
-            "After researching, return ONLY valid JSON and nothing else — no markdown fences, no explanation, just the JSON object."
-        )
+        # Research each batch with a delay between them
+        ai_suggestions: Dict[str, Any] = {}
 
-        tool_def = {
-            "type": "web_search_20250305",
-            "name": "web_search",
-            "max_uses": 25,
-        }
+        for i, batch in enumerate(batches):
+            label = batch_labels[i] if i < len(batch_labels) else f"Batch {i + 1}"
+            print(f"[admin] Researching batch {i + 1}/{len(batches)}: {label} ({len(batch)} assumptions)...")
 
-        # Collect text from ALL responses (across continuations)
-        all_text_parts = []
-
-        # Loop to handle pause_turn (long-running searches may pause)
-        response = None
-        for _attempt in range(5):  # max 5 continuations
-            response = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=16000,
-                temperature=0.1,
-                system=system_prompt,
-                messages=messages,
-                tools=[tool_def],
+            batch_result = _research_single_batch(
+                client=client,
+                batch_sources=batch,
+                current_flat=current_flat,
+                today=today,
+                system_prompt=system_prompt,
             )
+            ai_suggestions.update(batch_result)
 
-            # Collect text from this response
-            for block in response.content:
-                if hasattr(block, "type") and block.type == "text" and hasattr(block, "text"):
-                    all_text_parts.append(block.text)
+            # Wait between batches to respect rate limits (skip after last batch)
+            if i < len(batches) - 1:
+                print(f"[admin] Batch {i + 1} complete. Waiting 35s before next batch...")
+                time.sleep(35)
 
-            if response.stop_reason != "pause_turn":
-                break
-
-            # Claude's turn was paused — clean content and continue.
-            # Remove any unmatched server_tool_use blocks (searches that
-            # started but didn't finish before the pause).
-            tool_use_ids = set()
-            result_ids = set()
-            for block in response.content:
-                btype = getattr(block, "type", None)
-                if btype == "server_tool_use":
-                    tool_use_ids.add(getattr(block, "id", None))
-                elif btype == "web_search_tool_result":
-                    result_ids.add(getattr(block, "tool_use_id", None))
-
-            unmatched_ids = tool_use_ids - result_ids
-
-            if unmatched_ids:
-                # Strip orphaned server_tool_use blocks so the API accepts them
-                cleaned_content = [
-                    block for block in response.content
-                    if not (
-                        getattr(block, "type", None) == "server_tool_use"
-                        and getattr(block, "id", None) in unmatched_ids
-                    )
-                ]
-            else:
-                cleaned_content = list(response.content)
-
-            # Ensure we have at least one content block
-            if not cleaned_content:
-                break
-
-            messages.append({"role": "assistant", "content": cleaned_content})
-            messages.append({
-                "role": "user",
-                "content": "Please continue where you left off and return the complete JSON.",
-            })
-
-        # Build combined text from all responses
-        ai_response_text = "\n".join(all_text_parts)
-
-        # Try to extract JSON from the response text
-        # Claude may include explanatory text before/after the JSON when using web search
-        cleaned = ai_response_text.strip()
-
-        # Strip markdown code fences if present
-        if "```" in cleaned:
-            fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", cleaned, re.DOTALL)
-            if fence_match:
-                cleaned = fence_match.group(1).strip()
-
-        # If the response has text before/after the JSON object, extract just the JSON
-        if not cleaned.startswith("{"):
-            brace_start = cleaned.find("{")
-            if brace_start != -1:
-                cleaned = cleaned[brace_start:]
-        if not cleaned.endswith("}"):
-            brace_end = cleaned.rfind("}")
-            if brace_end != -1:
-                cleaned = cleaned[: brace_end + 1]
-
-        ai_suggestions = json.loads(cleaned)
+        print(f"[admin] All batches complete. Total suggestions: {len(ai_suggestions)}")
 
     except json.JSONDecodeError as e:
         raise HTTPException(
