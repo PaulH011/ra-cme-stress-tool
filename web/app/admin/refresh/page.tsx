@@ -47,12 +47,13 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  researchDefaults,
+  startResearch,
+  getResearchStatus,
   applyDefaults,
   revertDefaults,
   getRefreshHistory,
 } from '@/lib/api';
-import type { ResearchComparison, RefreshHistoryEntry } from '@/lib/api';
+import type { ResearchComparison, ResearchProgress, RefreshHistoryEntry } from '@/lib/api';
 
 type CategoryFilter = 'all' | 'Macro' | 'Bonds' | 'Equity' | 'Alternatives';
 
@@ -85,6 +86,9 @@ export default function AdminRefreshPage() {
   // History state
   const [history, setHistory] = useState<RefreshHistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Progress state (for background job polling)
+  const [progress, setProgress] = useState<ResearchProgress | null>(null);
 
   // Error state
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +127,7 @@ export default function AdminRefreshPage() {
   const acceptedCount = Object.values(accepted).filter(Boolean).length;
   const filteredAcceptedCount = filteredComparisons.filter((c) => accepted[c.key]).length;
 
-  // Research handler
+  // Research handler — starts background job, then polls for progress
   const handleResearch = async (testMode: boolean) => {
     if (!user?.email) return;
     setError(null);
@@ -132,23 +136,59 @@ export default function AdminRefreshPage() {
     setComparisons([]);
     setAccepted({});
     setApplyResult(null);
+    setProgress(null);
 
     try {
-      const result = await researchDefaults(user.email, testMode);
-      setComparisons(result.comparisons);
-      setLogId(result.log_id);
-      setResearchedAt(result.researched_at);
+      // 1. Start the background job (returns immediately)
+      const { job_id } = await startResearch(user.email, testMode);
 
-      // Pre-select top 5 biggest changes
-      const preSelected: Record<string, boolean> = {};
-      result.comparisons.forEach((c, i) => {
-        preSelected[c.key] = i < 5;
-      });
-      setAccepted(preSelected);
+      // 2. Poll for status every 10 seconds
+      const pollInterval = 10_000;
+      const maxPolls = 120; // max ~20 minutes
+      let polls = 0;
+
+      while (polls < maxPolls) {
+        await new Promise((r) => setTimeout(r, pollInterval));
+        polls++;
+
+        try {
+          const status = await getResearchStatus(job_id);
+          setProgress(status.progress);
+
+          if (status.status === 'completed' && status.result) {
+            setComparisons(status.result.comparisons);
+            setLogId(status.result.log_id);
+            setResearchedAt(status.result.researched_at);
+
+            // Pre-select top 5 biggest changes
+            const preSelected: Record<string, boolean> = {};
+            status.result.comparisons.forEach((c, i) => {
+              preSelected[c.key] = i < 5;
+            });
+            setAccepted(preSelected);
+            break;
+          }
+
+          if (status.status === 'failed') {
+            setError(status.error || 'Research failed');
+            break;
+          }
+
+          // Still running — loop continues
+        } catch (pollErr: any) {
+          // Transient poll error — keep trying
+          console.warn('Poll error:', pollErr.message);
+        }
+      }
+
+      if (polls >= maxPolls) {
+        setError('Research timed out after 20 minutes. Please try again.');
+      }
     } catch (err: any) {
-      setError(err.message || 'Research failed');
+      setError(err.message || 'Failed to start research');
     } finally {
       setIsResearching(false);
+      setProgress(null);
     }
   };
 
@@ -340,19 +380,63 @@ export default function AdminRefreshPage() {
         </Card>
       )}
 
-      {/* Loading State */}
+      {/* Loading State with Progress */}
       {isResearching && (
         <Card>
-          <CardContent className="py-16 text-center">
+          <CardContent className="py-12 text-center">
             <RefreshCw className="h-10 w-10 text-blue-500 mx-auto mb-4 animate-spin" />
             <h2 className="text-lg font-semibold text-slate-700 mb-2">
               Researching Market Data...
             </h2>
-            <p className="text-sm text-slate-500">
-              AI is searching the web for current market data across all assumptions.
-              Research is done in 8 batches to stay within API rate limits — this takes about 8-10 minutes.
-              Please keep this tab open.
-            </p>
+
+            {progress ? (
+              <div className="max-w-md mx-auto mt-4 space-y-3">
+                {/* Progress bar */}
+                <div className="w-full bg-slate-200 rounded-full h-2.5">
+                  <div
+                    className="bg-blue-500 h-2.5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.round((progress.completed_batches.length / progress.total_batches) * 100)}%`,
+                    }}
+                  />
+                </div>
+
+                {/* Current status text */}
+                <p className="text-sm font-medium text-slate-600">
+                  {progress.phase === 'waiting'
+                    ? `Waiting before next batch... (rate limit cooldown)`
+                    : progress.phase === 'starting'
+                    ? 'Starting research...'
+                    : `Batch ${progress.current_batch}/${progress.total_batches}: ${progress.current_label}`}
+                </p>
+
+                {/* Completed batches */}
+                {progress.completed_batches.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 justify-center">
+                    {progress.completed_batches.map((label) => (
+                      <Badge key={label} variant="default" className="text-xs bg-green-100 text-green-700 border-green-300">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        {label}
+                      </Badge>
+                    ))}
+                    {progress.failed_batches.map((label) => (
+                      <Badge key={label} variant="destructive" className="text-xs">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-xs text-slate-400">
+                  {progress.completed_batches.length} of {progress.total_batches} batches complete
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Starting AI research... this may take 8-10 minutes total.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

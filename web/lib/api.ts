@@ -173,6 +173,23 @@ export interface ResearchResult {
   is_test: boolean;
 }
 
+export interface ResearchProgress {
+  current_batch: number;
+  total_batches: number;
+  current_label: string;
+  completed_batches: string[];
+  failed_batches: string[];
+  phase: 'starting' | 'researching' | 'waiting';
+}
+
+export interface ResearchJobStatus {
+  status: 'running' | 'completed' | 'failed';
+  progress: ResearchProgress;
+  started_at: string;
+  result?: ResearchResult;
+  error?: string;
+}
+
 export interface RefreshHistoryEntry {
   id: string;
   initiated_at: string;
@@ -183,12 +200,13 @@ export interface RefreshHistoryEntry {
 }
 
 /**
- * Trigger AI research of current market assumptions (super user only)
+ * Start AI research as a background job (super user only).
+ * Returns a job_id — poll with getResearchStatus() for progress.
  */
-export async function researchDefaults(
+export async function startResearch(
   userEmail: string,
   isTest: boolean = false
-): Promise<ResearchResult> {
+): Promise<{ job_id: string }> {
   return fetchAPI('/api/admin/research-defaults', {
     method: 'POST',
     headers: {
@@ -197,6 +215,13 @@ export async function researchDefaults(
     },
     body: JSON.stringify({ is_test: isTest }),
   });
+}
+
+/**
+ * Poll research job status.
+ */
+export async function getResearchStatus(jobId: string): Promise<ResearchJobStatus> {
+  return fetchAPI(`/api/admin/research-status/${jobId}`);
 }
 
 /**

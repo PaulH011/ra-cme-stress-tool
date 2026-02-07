@@ -2,9 +2,10 @@
 Admin endpoints for quarterly assumption refresh.
 
 Provides:
-- POST /api/admin/research-defaults  (AI-powered market data research)
-- POST /api/admin/apply-defaults     (apply accepted changes to Supabase)
-- GET  /api/admin/refresh-history    (audit trail of past refreshes)
+- POST /api/admin/research-defaults     (start AI research as background job)
+- GET  /api/admin/research-status/{id}   (poll for research progress)
+- POST /api/admin/apply-defaults         (apply accepted changes to Supabase)
+- GET  /api/admin/refresh-history        (audit trail of past refreshes)
 """
 
 import os
@@ -12,6 +13,7 @@ import re
 import json
 import time
 import uuid
+import threading
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
@@ -21,6 +23,11 @@ from pydantic import BaseModel
 from api.config import SUPER_USER_EMAIL, ANTHROPIC_API_KEY
 
 router = APIRouter()
+
+# ---- In-memory job store ----
+# Stores background research jobs keyed by job_id (UUID string).
+# Each job: { status, progress, result, error, started_at }
+_research_jobs: Dict[str, Dict[str, Any]] = {}
 
 # ---- Paths ----
 DATA_SOURCES_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data_sources.json")
@@ -338,66 +345,66 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
     raise last_error  # type: ignore[misc]
 
 
-# ---- Endpoints ----
+# ---- Background research worker ----
 
-@router.post("/research-defaults")
-async def research_defaults(
-    request: ResearchRequest = ResearchRequest(),
-    x_user_email: Optional[str] = Header(None),
-):
+def _cleanup_old_jobs():
+    """Remove jobs older than 1 hour to prevent memory leaks."""
+    now = datetime.now(timezone.utc)
+    expired = []
+    for jid, job in _research_jobs.items():
+        started = datetime.fromisoformat(job["started_at"])
+        if (now - started).total_seconds() > 3600:
+            expired.append(jid)
+    for jid in expired:
+        del _research_jobs[jid]
+
+
+def _run_research_job(job_id: str, email: str, is_test: bool):
     """
-    Use Claude AI to research current market values for all assumptions.
-
-    Splits assumptions into batches (by category) and researches each
-    batch separately to stay under API rate limits. Results are merged
-    into a single comparison payload.
+    Background worker that runs batched AI research.
+    Updates _research_jobs[job_id] in-place so the status endpoint can report progress.
     """
-    email = _verify_super_user(x_user_email)
-
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=503, detail="Anthropic API key not configured")
-
-    # Load data sources config
-    data_sources = _load_data_sources()
-
-    # Load current defaults
-    from api.routes.defaults import get_current_defaults
-    current_defaults = get_current_defaults()
-    current_flat = _get_current_defaults_flat(current_defaults)
-
-    today = datetime.now(timezone.utc).strftime("%B %d, %Y")
-
-    system_prompt = (
-        "You are a financial data research assistant. "
-        "Use the web search tool to look up CURRENT market data from authoritative sources "
-        "(FRED, BLS, ECB, BOJ, IMF, Bloomberg, MSCI, etc.) before compiling your response. "
-        "Search for the most recent values — do NOT rely on your training data alone. "
-        "After researching, return ONLY valid JSON and nothing else — no markdown fences, no explanation, just the JSON object."
-    )
-
-    # Split into small batches to avoid rate limits (30K tokens/min on basic tier).
-    # Web search results count as input tokens, so each batch must be small.
-    batches = _split_into_batches(data_sources)
-    batch_labels = [
-        "Macro US", "Macro Eurozone", "Macro Japan", "Macro EM",
-        "Bonds DM", "Bonds EM", "Equity DM", "Equity EM+Alts",
-    ]
-
-    # Delay between batches (seconds). Must be >60s to fully reset the per-minute token window.
-    BATCH_DELAY = 75
+    job = _research_jobs[job_id]
 
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-        # Research each batch with a delay between them.
-        # If a batch fails, skip it and continue with the rest.
+        data_sources = _load_data_sources()
+
+        from api.routes.defaults import get_current_defaults
+        current_defaults = get_current_defaults()
+        current_flat = _get_current_defaults_flat(current_defaults)
+
+        today = datetime.now(timezone.utc).strftime("%B %d, %Y")
+
+        system_prompt = (
+            "You are a financial data research assistant. "
+            "Use the web search tool to look up CURRENT market data from authoritative sources "
+            "(FRED, BLS, ECB, BOJ, IMF, Bloomberg, MSCI, etc.) before compiling your response. "
+            "Search for the most recent values — do NOT rely on your training data alone. "
+            "After researching, return ONLY valid JSON and nothing else — no markdown fences, no explanation, just the JSON object."
+        )
+
+        batches = _split_into_batches(data_sources)
+        batch_labels = [
+            "Macro US", "Macro Eurozone", "Macro Japan", "Macro EM",
+            "Bonds DM", "Bonds EM", "Equity DM", "Equity EM+Alts",
+        ]
+
+        BATCH_DELAY = 75
+
         ai_suggestions: Dict[str, Any] = {}
         failed_batches: List[str] = []
 
+        job["progress"]["total_batches"] = len(batches)
+
         for i, batch in enumerate(batches):
             label = batch_labels[i] if i < len(batch_labels) else f"Batch {i + 1}"
-            print(f"[admin] Researching batch {i + 1}/{len(batches)}: {label} ({len(batch)} assumptions)...")
+            job["progress"]["current_batch"] = i + 1
+            job["progress"]["current_label"] = label
+            job["progress"]["phase"] = "researching"
+            print(f"[admin] Job {job_id[:8]}: Batch {i + 1}/{len(batches)}: {label} ({len(batch)} assumptions)...")
 
             try:
                 batch_result = _research_single_batch(
@@ -408,88 +415,162 @@ async def research_defaults(
                     system_prompt=system_prompt,
                 )
                 ai_suggestions.update(batch_result)
-                print(f"[admin] Batch {i + 1} ({label}) succeeded: {len(batch_result)} keys")
+                job["progress"]["completed_batches"].append(label)
+                print(f"[admin] Job {job_id[:8]}: Batch {i + 1} ({label}) succeeded: {len(batch_result)} keys")
             except Exception as batch_err:
-                print(f"[admin] Batch {i + 1} ({label}) FAILED: {str(batch_err)[:200]}")
+                print(f"[admin] Job {job_id[:8]}: Batch {i + 1} ({label}) FAILED: {str(batch_err)[:200]}")
                 failed_batches.append(label)
-                # Continue with remaining batches
+                job["progress"]["failed_batches"].append(label)
 
-            # Wait between batches to respect rate limits (skip after last batch)
+            # Wait between batches (skip after last)
             if i < len(batches) - 1:
-                print(f"[admin] Waiting {BATCH_DELAY}s before next batch...")
+                job["progress"]["phase"] = "waiting"
+                print(f"[admin] Job {job_id[:8]}: Waiting {BATCH_DELAY}s before next batch...")
                 time.sleep(BATCH_DELAY)
 
-        print(f"[admin] All batches complete. Suggestions: {len(ai_suggestions)}, Failed: {len(failed_batches)}")
+        print(f"[admin] Job {job_id[:8]}: All batches done. Suggestions: {len(ai_suggestions)}, Failed: {len(failed_batches)}")
 
-        # If ALL batches failed, raise an error
         if not ai_suggestions:
-            detail = f"All research batches failed. Errors in: {', '.join(failed_batches)}"
-            raise HTTPException(status_code=500, detail=detail)
+            job["status"] = "failed"
+            job["error"] = f"All research batches failed: {', '.join(failed_batches)}"
+            return
 
-    except HTTPException:
-        raise
+        # Build comparison payload
+        comparisons = []
+        for key, source_info in data_sources.items():
+            current_val = current_flat.get(key)
+            suggestion = ai_suggestions.get(key, {})
+            suggested_val = suggestion.get("suggested_value", current_val)
+
+            if current_val is not None and suggested_val is not None:
+                abs_diff = round(suggested_val - current_val, 4)
+                rel_diff = round(abs_diff / current_val * 100, 2) if current_val != 0 else 0
+            else:
+                abs_diff = 0
+                rel_diff = 0
+
+            comparisons.append({
+                "key": key,
+                "display_name": source_info["display_name"],
+                "category": source_info["category"],
+                "subcategory": source_info["subcategory"],
+                "unit": source_info["unit"],
+                "current_value": current_val,
+                "suggested_value": suggested_val,
+                "abs_diff": abs_diff,
+                "rel_diff": rel_diff,
+                "source": suggestion.get("source", source_info["source_description"]),
+                "source_url": suggestion.get("source_url") or source_info.get("source_url"),
+                "confidence": suggestion.get("confidence", "low"),
+                "notes": suggestion.get("notes", ""),
+            })
+
+        comparisons.sort(key=lambda x: abs(x["abs_diff"]), reverse=True)
+
+        # Log to Supabase
+        supabase = _get_supabase_client()
+        log_id = str(uuid.uuid4())
+        if supabase:
+            try:
+                supabase.table("assumption_refresh_log").insert({
+                    "id": log_id,
+                    "initiated_at": datetime.now(timezone.utc).isoformat(),
+                    "initiated_by": email,
+                    "suggestions_json": ai_suggestions,
+                    "applied_changes_json": None,
+                    "status": "pending" if not is_test else "test",
+                }).execute()
+            except Exception as e:
+                print(f"[admin] Could not log research to Supabase: {e}")
+
+        # Store final result
+        job["status"] = "completed"
+        job["result"] = {
+            "log_id": log_id,
+            "researched_at": datetime.now(timezone.utc).isoformat(),
+            "comparisons": comparisons,
+            "total_assumptions": len(comparisons),
+            "is_test": is_test,
+        }
+        print(f"[admin] Job {job_id[:8]}: COMPLETED with {len(comparisons)} comparisons")
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Claude research failed: {str(e)}"
-        )
+        job["status"] = "failed"
+        job["error"] = str(e)
+        print(f"[admin] Job {job_id[:8]}: FAILED with error: {str(e)[:300]}")
 
-    # Build comparison payload
-    comparisons = []
-    for key, source_info in data_sources.items():
-        current_val = current_flat.get(key)
-        suggestion = ai_suggestions.get(key, {})
-        suggested_val = suggestion.get("suggested_value", current_val)
 
-        if current_val is not None and suggested_val is not None:
-            abs_diff = round(suggested_val - current_val, 4)
-            rel_diff = round(abs_diff / current_val * 100, 2) if current_val != 0 else 0
-        else:
-            abs_diff = 0
-            rel_diff = 0
+# ---- Endpoints ----
 
-        comparisons.append({
-            "key": key,
-            "display_name": source_info["display_name"],
-            "category": source_info["category"],
-            "subcategory": source_info["subcategory"],
-            "unit": source_info["unit"],
-            "current_value": current_val,
-            "suggested_value": suggested_val,
-            "abs_diff": abs_diff,
-            "rel_diff": rel_diff,
-            "source": suggestion.get("source", source_info["source_description"]),
-            "source_url": suggestion.get("source_url") or source_info.get("source_url"),
-            "confidence": suggestion.get("confidence", "low"),
-            "notes": suggestion.get("notes", ""),
-        })
+@router.post("/research-defaults")
+async def research_defaults(
+    request: ResearchRequest = ResearchRequest(),
+    x_user_email: Optional[str] = Header(None),
+):
+    """
+    Start AI market-data research as a background job.
+    Returns a job_id immediately — poll /research-status/{job_id} for progress.
+    """
+    email = _verify_super_user(x_user_email)
 
-    # Sort by absolute magnitude of difference (biggest changes first)
-    comparisons.sort(key=lambda x: abs(x["abs_diff"]), reverse=True)
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=503, detail="Anthropic API key not configured")
 
-    # Log to Supabase
-    supabase = _get_supabase_client()
-    log_id = str(uuid.uuid4())
-    if supabase:
-        try:
-            supabase.table("assumption_refresh_log").insert({
-                "id": log_id,
-                "initiated_at": datetime.now(timezone.utc).isoformat(),
-                "initiated_by": email,
-                "suggestions_json": ai_suggestions,
-                "applied_changes_json": None,
-                "status": "pending" if not request.is_test else "test",
-            }).execute()
-        except Exception as e:
-            print(f"[admin] Could not log research to Supabase: {e}")
+    # Cleanup old jobs
+    _cleanup_old_jobs()
 
-    return {
-        "log_id": log_id,
-        "researched_at": datetime.now(timezone.utc).isoformat(),
-        "comparisons": comparisons,
-        "total_assumptions": len(comparisons),
-        "is_test": request.is_test,
+    # Create job entry
+    job_id = str(uuid.uuid4())
+    _research_jobs[job_id] = {
+        "status": "running",
+        "progress": {
+            "current_batch": 0,
+            "total_batches": 8,
+            "current_label": "Starting...",
+            "completed_batches": [],
+            "failed_batches": [],
+            "phase": "starting",
+        },
+        "result": None,
+        "error": None,
+        "started_at": datetime.now(timezone.utc).isoformat(),
     }
+
+    # Launch background thread
+    thread = threading.Thread(
+        target=_run_research_job,
+        args=(job_id, email, request.is_test),
+        daemon=True,
+    )
+    thread.start()
+
+    print(f"[admin] Started research job {job_id[:8]} for {email} (test={request.is_test})")
+
+    return {"job_id": job_id}
+
+
+@router.get("/research-status/{job_id}")
+async def research_status(job_id: str):
+    """
+    Poll this endpoint to check research progress.
+    Returns status, progress, and (when complete) the full result.
+    """
+    job = _research_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Research job not found")
+
+    response: Dict[str, Any] = {
+        "status": job["status"],
+        "progress": job["progress"],
+        "started_at": job["started_at"],
+    }
+
+    if job["status"] == "completed":
+        response["result"] = job["result"]
+    elif job["status"] == "failed":
+        response["error"] = job["error"]
+
+    return response
 
 
 @router.post("/apply-defaults")
