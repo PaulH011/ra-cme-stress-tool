@@ -43,6 +43,7 @@ import {
   History,
   RotateCcw,
   Beaker,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -476,9 +477,22 @@ export default function AdminRefreshPage() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <p className="text-xs text-slate-500 max-w-[200px] truncate" title={c.source}>
-                            {c.source}
-                          </p>
+                          {c.source_url ? (
+                            <a
+                              href={c.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline max-w-[200px] truncate flex items-center gap-1"
+                              title={c.source}
+                            >
+                              <span className="truncate">{c.source}</span>
+                              <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                            </a>
+                          ) : (
+                            <p className="text-xs text-slate-500 max-w-[200px] truncate" title={c.source}>
+                              {c.source}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant={confidenceColor(c.confidence)} className="text-xs">

@@ -160,6 +160,7 @@ export interface ResearchComparison {
   abs_diff: number;
   rel_diff: number;
   source: string;
+  source_url: string | null;
   confidence: 'high' | 'medium' | 'low';
   notes: string;
 }

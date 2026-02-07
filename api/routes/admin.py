@@ -241,6 +241,7 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
             "abs_diff": abs_diff,
             "rel_diff": rel_diff,
             "source": suggestion.get("source", source_info["source_description"]),
+            "source_url": source_info.get("source_url"),
             "confidence": suggestion.get("confidence", "low"),
             "notes": suggestion.get("notes", ""),
         })
