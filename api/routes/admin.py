@@ -198,6 +198,15 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
             "After researching, return ONLY valid JSON and nothing else — no markdown fences, no explanation, just the JSON object."
         )
 
+        tool_def = {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 25,
+        }
+
+        # Collect text from ALL responses (across continuations)
+        all_text_parts = []
+
         # Loop to handle pause_turn (long-running searches may pause)
         response = None
         for _attempt in range(5):  # max 5 continuations
@@ -207,28 +216,54 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
                 temperature=0.1,
                 system=system_prompt,
                 messages=messages,
-                tools=[{
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                    "max_uses": 25,
-                }],
+                tools=[tool_def],
             )
 
-            if response.stop_reason == "pause_turn":
-                # Claude's turn was paused — send response back to continue
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append({"role": "user", "content": "Please continue where you left off and return the complete JSON."})
-            else:
+            # Collect text from this response
+            for block in response.content:
+                if hasattr(block, "type") and block.type == "text" and hasattr(block, "text"):
+                    all_text_parts.append(block.text)
+
+            if response.stop_reason != "pause_turn":
                 break
 
-        # Extract text from response content blocks
-        # With web search, response contains interleaved text, tool_use, and tool_result blocks.
-        # We need to find the text block(s) containing the JSON.
-        all_text_parts = []
-        for block in response.content:
-            if hasattr(block, "type") and block.type == "text" and hasattr(block, "text"):
-                all_text_parts.append(block.text)
+            # Claude's turn was paused — clean content and continue.
+            # Remove any unmatched server_tool_use blocks (searches that
+            # started but didn't finish before the pause).
+            tool_use_ids = set()
+            result_ids = set()
+            for block in response.content:
+                btype = getattr(block, "type", None)
+                if btype == "server_tool_use":
+                    tool_use_ids.add(getattr(block, "id", None))
+                elif btype == "web_search_tool_result":
+                    result_ids.add(getattr(block, "tool_use_id", None))
 
+            unmatched_ids = tool_use_ids - result_ids
+
+            if unmatched_ids:
+                # Strip orphaned server_tool_use blocks so the API accepts them
+                cleaned_content = [
+                    block for block in response.content
+                    if not (
+                        getattr(block, "type", None) == "server_tool_use"
+                        and getattr(block, "id", None) in unmatched_ids
+                    )
+                ]
+            else:
+                cleaned_content = list(response.content)
+
+            # Ensure we have at least one content block
+            if not cleaned_content:
+                break
+
+            messages.append({"role": "assistant", "content": cleaned_content})
+            messages.append({
+                "role": "user",
+                "content": "Please continue where you left off and return the complete JSON.",
+            })
+
+        # Build combined text from all responses
         ai_response_text = "\n".join(all_text_parts)
 
         # Try to extract JSON from the response text
@@ -237,7 +272,6 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
 
         # Strip markdown code fences if present
         if "```" in cleaned:
-            # Find JSON block within fences
             fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", cleaned, re.DOTALL)
             if fence_match:
                 cleaned = fence_match.group(1).strip()
