@@ -223,7 +223,7 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
     tool_def = {
         "type": "web_search_20250305",
         "name": "web_search",
-        "max_uses": 5,
+        "max_uses": 3,
     }
 
     last_error = None
@@ -243,6 +243,10 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
                     messages=messages,
                     tools=[tool_def],
                 )
+
+                # Log response structure for debugging
+                block_types = [getattr(b, "type", "unknown") for b in response.content]
+                print(f"[admin]   Response blocks: {block_types}, stop_reason={response.stop_reason}")
 
                 # Collect text from this response
                 for block in response.content:
@@ -285,6 +289,11 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
 
             # Extract JSON from collected text
             ai_response_text = "\n".join(all_text_parts)
+            print(f"[admin]   Collected text length: {len(ai_response_text)} chars")
+
+            if not ai_response_text.strip():
+                raise ValueError("No text content returned from Claude — response may have been empty or all search blocks")
+
             cleaned = ai_response_text.strip()
 
             # Strip markdown code fences
@@ -303,18 +312,26 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
                 if brace_end != -1:
                     cleaned = cleaned[: brace_end + 1]
 
-            return json.loads(cleaned)
+            result = json.loads(cleaned)
+            print(f"[admin]   Parsed {len(result)} keys from response")
+            return result
 
         except Exception as e:
             last_error = e
             error_str = str(e)
-            # Retry on rate limit errors
-            if "rate_limit" in error_str or "429" in error_str:
-                if attempt < max_retries:
-                    print(f"[admin] Rate limited on batch, waiting 60s before retry (attempt {attempt + 1})...")
-                    time.sleep(60)
-                    continue
-            # Non-retryable error — raise immediately
+            print(f"[admin]   Batch attempt {attempt + 1} failed: {error_str[:200]}")
+            # Retry on rate limit errors OR empty responses (may be transient)
+            is_retryable = (
+                "rate_limit" in error_str
+                or "429" in error_str
+                or "No text content returned" in error_str
+            )
+            if is_retryable and attempt < max_retries:
+                wait = 70 if "rate_limit" in error_str or "429" in error_str else 30
+                print(f"[admin]   Waiting {wait}s before retry...")
+                time.sleep(wait)
+                continue
+            # Non-retryable error or retries exhausted — raise
             raise
 
     # All retries exhausted
@@ -367,40 +384,50 @@ async def research_defaults(
     ]
 
     # Delay between batches (seconds). Must be >60s to fully reset the per-minute token window.
-    BATCH_DELAY = 65
+    BATCH_DELAY = 75
 
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-        # Research each batch with a delay between them
+        # Research each batch with a delay between them.
+        # If a batch fails, skip it and continue with the rest.
         ai_suggestions: Dict[str, Any] = {}
+        failed_batches: List[str] = []
 
         for i, batch in enumerate(batches):
             label = batch_labels[i] if i < len(batch_labels) else f"Batch {i + 1}"
             print(f"[admin] Researching batch {i + 1}/{len(batches)}: {label} ({len(batch)} assumptions)...")
 
-            batch_result = _research_single_batch(
-                client=client,
-                batch_sources=batch,
-                current_flat=current_flat,
-                today=today,
-                system_prompt=system_prompt,
-            )
-            ai_suggestions.update(batch_result)
+            try:
+                batch_result = _research_single_batch(
+                    client=client,
+                    batch_sources=batch,
+                    current_flat=current_flat,
+                    today=today,
+                    system_prompt=system_prompt,
+                )
+                ai_suggestions.update(batch_result)
+                print(f"[admin] Batch {i + 1} ({label}) succeeded: {len(batch_result)} keys")
+            except Exception as batch_err:
+                print(f"[admin] Batch {i + 1} ({label}) FAILED: {str(batch_err)[:200]}")
+                failed_batches.append(label)
+                # Continue with remaining batches
 
             # Wait between batches to respect rate limits (skip after last batch)
             if i < len(batches) - 1:
-                print(f"[admin] Batch {i + 1} complete. Waiting {BATCH_DELAY}s before next batch...")
+                print(f"[admin] Waiting {BATCH_DELAY}s before next batch...")
                 time.sleep(BATCH_DELAY)
 
-        print(f"[admin] All batches complete. Total suggestions: {len(ai_suggestions)}")
+        print(f"[admin] All batches complete. Suggestions: {len(ai_suggestions)}, Failed: {len(failed_batches)}")
 
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to parse AI response as JSON: {str(e)}"
-        )
+        # If ALL batches failed, raise an error
+        if not ai_suggestions:
+            detail = f"All research batches failed. Errors in: {', '.join(failed_batches)}"
+            raise HTTPException(status_code=500, detail=detail)
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
