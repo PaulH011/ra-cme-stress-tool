@@ -236,7 +236,7 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
             response = None
             for _cont in range(3):
                 response = client.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model="claude-haiku-4-5-20251001",
                     max_tokens=8000,
                     temperature=0.1,
                     system=system_prompt,
