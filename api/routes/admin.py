@@ -153,6 +153,7 @@ Return your response as a valid JSON object with the exact keys provided.
 For each assumption key, return an object with:
 - "suggested_value": the current value as a number (in the same unit as specified - percentage points for %, ratio for x, years for years)
 - "source": where you found this data (specific publication, index, date of data)
+- "source_url": a direct URL to the public data source where this value can be verified (e.g., FRED series page, official statistics page, index provider page). Use well-known stable URLs. If no reliable URL exists, return null.
 - "confidence": "high" | "medium" | "low"
 - "notes": brief explanation of any significant change from the current model value
 
@@ -171,6 +172,7 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
   "<key>": {{
     "suggested_value": <number>,
     "source": "<string>",
+    "source_url": "<string or null>",
     "confidence": "<high|medium|low>",
     "notes": "<string>"
   }},
@@ -241,7 +243,7 @@ Return ONLY valid JSON (no markdown, no code fences, no explanation) with the st
             "abs_diff": abs_diff,
             "rel_diff": rel_diff,
             "source": suggestion.get("source", source_info["source_description"]),
-            "source_url": source_info.get("source_url"),
+            "source_url": suggestion.get("source_url") or source_info.get("source_url"),
             "confidence": suggestion.get("confidence", "low"),
             "notes": suggestion.get("notes", ""),
         })
