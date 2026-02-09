@@ -253,6 +253,7 @@ DEFAULT_ASSET_DATA = {
         'fair_caey': 0.05,                     # 5.0% (CAPE ~20)
         'real_eps_growth': 0.018,              # 1.8%
         'regional_eps_growth': 0.016,          # DM average
+        'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
     },
 
     AssetClass.EQUITY_EUROPE: {
@@ -261,6 +262,7 @@ DEFAULT_ASSET_DATA = {
         'fair_caey': 0.055,                    # 5.5%
         'real_eps_growth': 0.012,              # 1.2%
         'regional_eps_growth': 0.016,          # DM average
+        'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
     },
 
     AssetClass.EQUITY_JAPAN: {
@@ -269,6 +271,7 @@ DEFAULT_ASSET_DATA = {
         'fair_caey': 0.05,                     # 5.0%
         'real_eps_growth': 0.008,              # 0.8%
         'regional_eps_growth': 0.016,          # DM average
+        'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
     },
 
     AssetClass.EQUITY_EM: {
@@ -277,6 +280,7 @@ DEFAULT_ASSET_DATA = {
         'fair_caey': 0.06,                     # 6.0%
         'real_eps_growth': 0.030,              # 3.0%
         'regional_eps_growth': 0.028,          # EM average
+        'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
     },
 
     AssetClass.ABSOLUTE_RETURN: {
