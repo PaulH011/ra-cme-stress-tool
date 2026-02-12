@@ -40,9 +40,9 @@ function MacroRegionInputs({ region }: { region: MacroRegion }) {
     if (!computed) return;
 
     const computedValues: Partial<Record<string, number>> = {
-      rgdp_growth: computed.rgdp_growth * 100,
-      inflation_forecast: computed.inflation * 100,
-      tbill_forecast: computed.tbill * 100,
+      rgdp_growth: Math.round(computed.rgdp_growth * 10000) / 100,
+      inflation_forecast: Math.round(computed.inflation * 10000) / 100,
+      tbill_forecast: Math.round(computed.tbill * 10000) / 100,
     };
 
     syncMacroComputed(region, computedValues);

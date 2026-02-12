@@ -85,10 +85,31 @@ export default function MethodologyPage() {
 
         <Card className="bg-green-50 border-green-200 mt-4">
           <CardContent className="pt-4">
-            <h4 className="font-semibold text-green-800 mb-2">New Feature: Asset Breakdown</h4>
+            <h4 className="font-semibold text-green-800 mb-2">Feature: Asset Breakdown</h4>
             <p className="text-sm text-green-700">
               Click on any asset class row in the results table to see a detailed breakdown of the return calculation,
               including the formula, component attribution chart, and input values. Blue badges indicate user overrides.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-purple-50 border-purple-200 mt-4">
+          <CardContent className="pt-4">
+            <h4 className="font-semibold text-purple-800 mb-2">Feature: Dual Equity Models</h4>
+            <p className="text-sm text-purple-700">
+              The tool supports two equity models that can be toggled in the Equity input tab:
+              the <strong>RA Model</strong> (CAEY-based, produces real returns) and the <strong>Grinold-Kroner Model</strong> (P/E-based,
+              produces nominal returns with revenue growth linked to macro). See the <a href="#equity" className="underline">Equity Models</a> section for details.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-blue-50 border-blue-200 mt-4">
+          <CardContent className="pt-4">
+            <h4 className="font-semibold text-blue-800 mb-2">Feature: EUR FX Explanation</h4>
+            <p className="text-sm text-blue-700">
+              When EUR is selected as base currency, a dedicated <strong>Currency Adjustment</strong> card appears showing
+              the FX methodology, carry/PPP breakdown per currency pair, and the FX impact on each affected asset class.
             </p>
           </CardContent>
         </Card>
@@ -138,6 +159,19 @@ export default function MethodologyPage() {
             </tbody>
           </table>
         </div>
+
+        <Card className="bg-blue-50 border-blue-200 mt-4 mb-6">
+          <CardContent className="pt-4">
+            <h4 className="font-semibold text-blue-800 mb-2">Visual FX Breakdown (EUR Mode)</h4>
+            <p className="text-sm text-blue-700">
+              When you toggle to <strong>EUR</strong> as the base currency, a <strong>Currency Adjustment</strong> card
+              appears on the dashboard showing the carry and PPP components for each currency pair
+              (EUR/USD, EUR/JPY, EUR/EM), which asset classes each pair affects, and the per-asset FX impact.
+              Additionally, the asset breakdown waterfall charts will include an <strong>FX Return</strong> bar
+              showing the currency adjustment contribution for each non-EUR asset.
+            </p>
+          </CardContent>
+        </Card>
 
         <h3 className="text-lg font-semibold mt-6 mb-3">Asset Currency Mapping</h3>
         <div className="overflow-x-auto">
@@ -432,63 +466,222 @@ export default function MethodologyPage() {
           Equity Models
         </h2>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 font-mono text-sm mb-6">
-          <strong>E[Real Equity Return] = Dividend Yield + Real EPS Growth + Valuation Change</strong>
-        </div>
-        <p className="mb-4 text-slate-600">Note: This produces a <strong>real</strong> return. Add inflation to get nominal return.</p>
+        <p className="mb-4 text-slate-600">
+          The tool supports <strong>two equity models</strong> that can be toggled in the Equity input panel.
+          All four equity regions (US, Europe, Japan, EM) use the same model at any given time.
+        </p>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Dividend Yield</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="font-mono text-sm bg-slate-100 p-2 rounded mb-2">Current trailing 12-month dividend yield</p>
-              <p className="text-sm text-slate-600">Taken as current value with no mean reversion assumed.</p>
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="ra-model" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="ra-model">RA Model (CAEY-Based)</TabsTrigger>
+            <TabsTrigger value="gk-model">Grinold-Kroner Model (P/E-Based)</TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Real EPS Growth</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="font-mono text-sm bg-slate-100 p-2 rounded mb-2">EPS = 50% × Country + 50% × Regional</p>
-              <p className="text-sm text-slate-600">Blended growth capped at Global GDP; 50-year log-linear trend.</p>
-            </CardContent>
-          </Card>
+          {/* RA Model */}
+          <TabsContent value="ra-model" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  RA Model
+                  <Badge variant="outline" className="bg-slate-100">Default</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 font-mono text-sm mb-4">
+                  <strong>E[Real Equity Return] = Dividend Yield + Real EPS Growth + Valuation Change (CAEY)</strong>
+                </div>
+                <p className="mb-4 text-slate-600">
+                  This produces a <strong>real</strong> return. Add regional inflation to get the nominal return.
+                </p>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Valuation Change</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="font-mono text-sm bg-slate-100 p-2 rounded mb-2">Val = (Fair CAEY / Current CAEY)^(1/20) - 1</p>
-              <p className="text-sm text-slate-600">CAEY (1/CAPE) reverts to fair value over 20 years.</p>
-            </CardContent>
-          </Card>
-        </div>
+                <div className="grid md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2">Dividend Yield</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">DY = Current Trailing 12-Month Yield</p>
+                    <p className="text-sm text-slate-600">Taken as current value with no mean reversion assumed.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2">Real EPS Growth</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">EPS = 50% × Country + 50% × Regional</p>
+                    <p className="text-sm text-slate-600">Blended growth capped at Global GDP; 50-year log-linear trend.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2">Valuation Change</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">Val = (Fair CAEY / Current CAEY)^(1/20) - 1</p>
+                    <p className="text-sm text-slate-600">CAEY (1/CAPE) reverts to fair value over 20 years.</p>
+                  </div>
+                </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-slate-800 text-white">
-                <th className="p-2 text-left">Input</th>
-                <th className="p-2 text-left">US</th>
-                <th className="p-2 text-left">Europe</th>
-                <th className="p-2 text-left">Japan</th>
-                <th className="p-2 text-left">EM</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b"><td className="p-2 font-medium">Dividend Yield</td><td className="p-2">1.13%</td><td className="p-2">3.0%</td><td className="p-2">2.2%</td><td className="p-2">3.0%</td></tr>
-              <tr className="border-b"><td className="p-2 font-medium">Current CAEY</td><td className="p-2">2.48%</td><td className="p-2">5.5%</td><td className="p-2">5.5%</td><td className="p-2">6.5%</td></tr>
-              <tr className="border-b"><td className="p-2 font-medium">Fair CAEY</td><td className="p-2">5.0%</td><td className="p-2">5.5%</td><td className="p-2">5.0%</td><td className="p-2">6.0%</td></tr>
-              <tr className="border-b"><td className="p-2 font-medium">Country EPS Growth</td><td className="p-2">1.8%</td><td className="p-2">1.2%</td><td className="p-2">0.8%</td><td className="p-2">3.0%</td></tr>
-              <tr className="border-b"><td className="p-2 font-medium">Regional EPS Growth</td><td className="p-2">1.6%</td><td className="p-2">1.6%</td><td className="p-2">1.6%</td><td className="p-2">2.8%</td></tr>
-            </tbody>
-          </table>
-        </div>
+                <h4 className="font-semibold mb-3">RA Model Default Inputs</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-white">
+                        <th className="p-2 text-left">Input</th>
+                        <th className="p-2 text-right">US</th>
+                        <th className="p-2 text-right">Europe</th>
+                        <th className="p-2 text-right">Japan</th>
+                        <th className="p-2 text-right">EM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Dividend Yield</td><td className="p-2 text-right">1.13%</td><td className="p-2 text-right">3.00%</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">3.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Current CAEY</td><td className="p-2 text-right">2.48%</td><td className="p-2 text-right">5.50%</td><td className="p-2 text-right">5.50%</td><td className="p-2 text-right">6.50%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Fair CAEY</td><td className="p-2 text-right">5.00%</td><td className="p-2 text-right">5.50%</td><td className="p-2 text-right">5.00%</td><td className="p-2 text-right">6.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Country EPS Growth</td><td className="p-2 text-right">1.80%</td><td className="p-2 text-right">1.20%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">3.00%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Regional EPS Growth</td><td className="p-2 text-right">1.60%</td><td className="p-2 text-right">1.60%</td><td className="p-2 text-right">1.60%</td><td className="p-2 text-right">2.80%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Reversion Speed</td><td className="p-2 text-right">100%</td><td className="p-2 text-right">100%</td><td className="p-2 text-right">100%</td><td className="p-2 text-right">100%</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-green-50 border-green-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-green-700">
+                      <strong>Valuation Impact:</strong> US equities have the largest valuation headwind (Current CAEY 2.48% vs Fair 5.00%),
+                      implying the market expects CAPE to compress from ~40x to ~20x over 20 years.
+                      Europe is at fair value (no headwind/tailwind). EM has a slight tailwind (6.50% vs fair 6.00%).
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Grinold-Kroner Model */}
+          <TabsContent value="gk-model" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  Grinold-Kroner Model
+                  <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200">Alternative</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 font-mono text-sm mb-4">
+                  <strong>E[Nominal Return] = Dividend Yield + Net Buyback Yield + Revenue Growth + Margin Change + Valuation Change (P/E)</strong>
+                </div>
+                <p className="mb-4 text-slate-600">
+                  The GK model produces a <strong>nominal</strong> return directly (no need to add inflation).
+                  It decomposes equity returns into five components covering income, growth, and repricing.
+                </p>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-green-700">Dividend Yield</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">DY = Current Trailing 12-Month Yield</p>
+                    <p className="text-sm text-slate-600">Income from dividends, taken at current market value.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-emerald-700">Net Buyback Yield</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">Buyback = Gross Buybacks - New Issuance</p>
+                    <p className="text-sm text-slate-600">Net shareholder yield from buybacks minus dilution from new issuance.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-blue-700">Revenue Growth</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">RevGrowth = Inflation + Real GDP + Wedge</p>
+                    <p className="text-sm text-slate-600">Auto-computed from regional macro, or directly overridden. See below for details.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-indigo-700">Margin Change</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">Margin = Annual profit margin change</p>
+                    <p className="text-sm text-slate-600">Positive = expansion (e.g., reform). Negative = compression from peak margins.</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-amber-700">Valuation Change</h4>
+                    <p className="font-mono text-sm bg-white p-2 rounded mb-2">Val = (Target P/E / Current P/E)^(1/10) - 1</p>
+                    <p className="text-sm text-slate-600">P/E convergence to equilibrium over the 10-year forecast horizon.</p>
+                  </div>
+                </div>
+
+                {/* Macro-Linked Revenue Growth */}
+                <Card className="bg-blue-50 border-blue-200 mb-6">
+                  <CardContent className="pt-4">
+                    <h4 className="font-semibold text-blue-800 mb-2">Macro-Linked Revenue Growth</h4>
+                    <p className="text-sm text-blue-700 mb-3">
+                      Revenue Growth is the key link between the macro models and the GK equity model.
+                      Unless directly overridden by the user, it is <strong>auto-computed</strong> from regional macro forecasts:
+                    </p>
+                    <div className="bg-white border border-blue-200 rounded-lg p-3 font-mono text-sm mb-3">
+                      Revenue Growth = Regional Inflation + Regional Real GDP Growth + Revenue-GDP Wedge
+                    </div>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li><strong>Regional Inflation</strong>: From the macro inflation model (30% current + 70% long-term)</li>
+                      <li><strong>Regional Real GDP</strong>: From the macro GDP model (productivity + population + demographics)</li>
+                      <li><strong>Revenue-GDP Wedge</strong>: Premium/discount of corporate revenue growth over nominal GDP (e.g., +2% for US due to global revenue exposure)</li>
+                    </ul>
+                    <p className="text-sm text-blue-700 mt-3">
+                      <strong>Override behavior:</strong> If you manually set Revenue Growth in the equity inputs, the macro link is broken
+                      and your value is used directly. The computed value is still shown for reference.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <h4 className="font-semibold mb-3">GK Model Default Inputs</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-white">
+                        <th className="p-2 text-left">Input</th>
+                        <th className="p-2 text-right">US</th>
+                        <th className="p-2 text-right">Europe</th>
+                        <th className="p-2 text-right">Japan</th>
+                        <th className="p-2 text-right">EM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Dividend Yield</td><td className="p-2 text-right">1.30%</td><td className="p-2 text-right">3.00%</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">3.00%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Net Buyback Yield</td><td className="p-2 text-right">1.50%</td><td className="p-2 text-right">0.50%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">-1.50%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Revenue-GDP Wedge</td><td className="p-2 text-right">2.00%</td><td className="p-2 text-right">0.50%</td><td className="p-2 text-right">0.50%</td><td className="p-2 text-right">0.50%</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Margin Change</td><td className="p-2 text-right">-0.50%</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">0.30%</td><td className="p-2 text-right">0.00%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Current Forward P/E</td><td className="p-2 text-right">22.0x</td><td className="p-2 text-right">14.0x</td><td className="p-2 text-right">15.0x</td><td className="p-2 text-right">12.0x</td></tr>
+                      <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Target P/E</td><td className="p-2 text-right">20.0x</td><td className="p-2 text-right">14.0x</td><td className="p-2 text-right">14.5x</td><td className="p-2 text-right">12.0x</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-amber-50 border-amber-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-amber-700">
+                      <strong>Key Differences vs RA Model:</strong> The GK model uses P/E ratios (not CAEY/CAPE) for valuation,
+                      separates revenue growth from margin change (vs a single EPS growth component),
+                      and explicitly includes net buyback yield. It also produces nominal returns directly,
+                      making it easier to compare with observable market yields.
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Model Comparison */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Model Comparison: RA vs Grinold-Kroner</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-800 text-white">
+                    <th className="p-2 text-left">Feature</th>
+                    <th className="p-2 text-left">RA Model</th>
+                    <th className="p-2 text-left">Grinold-Kroner Model</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b"><td className="p-2 font-medium">Output</td><td className="p-2">Real return (add inflation for nominal)</td><td className="p-2">Nominal return directly</td></tr>
+                  <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Valuation Metric</td><td className="p-2">CAEY (1/CAPE) — 20-year reversion</td><td className="p-2">Forward P/E — 10-year reversion</td></tr>
+                  <tr className="border-b"><td className="p-2 font-medium">Growth Component</td><td className="p-2">Real EPS Growth (blended, GDP-capped)</td><td className="p-2">Revenue Growth + Margin Change (macro-linked)</td></tr>
+                  <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Buyback Component</td><td className="p-2">Not explicit (in EPS growth)</td><td className="p-2">Explicit Net Buyback Yield</td></tr>
+                  <tr className="border-b"><td className="p-2 font-medium">Macro Linkage</td><td className="p-2">Inflation (for nominal), GDP cap on EPS</td><td className="p-2">Inflation + GDP flow through Revenue Growth</td></tr>
+                  <tr className="border-b bg-slate-50"><td className="p-2 font-medium">Best For</td><td className="p-2">Long-term strategic allocation</td><td className="p-2">Understanding growth/margin/repricing drivers</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
       {/* Absolute Return */}
@@ -673,7 +866,8 @@ export default function MethodologyPage() {
                 <CardTitle className="text-lg">Equity Default Assumptions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                <h4 className="font-semibold mb-3">RA Model (CAEY-Based)</h4>
+                <div className="overflow-x-auto mb-6">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-slate-800 text-white">
@@ -697,12 +891,35 @@ export default function MethodologyPage() {
                   </table>
                 </div>
 
-                <Card className="bg-green-50 border-green-200 mt-4">
+                <h4 className="font-semibold mb-3">Grinold-Kroner Model (P/E-Based)</h4>
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-purple-800 text-white">
+                        <th className="p-2 text-left">Input</th>
+                        <th className="p-2 text-right">US</th>
+                        <th className="p-2 text-right">Europe</th>
+                        <th className="p-2 text-right">Japan</th>
+                        <th className="p-2 text-right">EM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b"><td className="p-2 font-medium">Dividend Yield</td><td className="p-2 text-right">1.30%</td><td className="p-2 text-right">3.00%</td><td className="p-2 text-right">2.20%</td><td className="p-2 text-right">3.00%</td></tr>
+                      <tr className="border-b bg-purple-50"><td className="p-2 font-medium">Net Buyback Yield</td><td className="p-2 text-right">1.50%</td><td className="p-2 text-right">0.50%</td><td className="p-2 text-right">0.80%</td><td className="p-2 text-right">-1.50%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Revenue-GDP Wedge</td><td className="p-2 text-right">2.00%</td><td className="p-2 text-right">0.50%</td><td className="p-2 text-right">0.50%</td><td className="p-2 text-right">0.50%</td></tr>
+                      <tr className="border-b bg-purple-50"><td className="p-2 font-medium">Margin Change</td><td className="p-2 text-right">-0.50%</td><td className="p-2 text-right">0.00%</td><td className="p-2 text-right">+0.30%</td><td className="p-2 text-right">0.00%</td></tr>
+                      <tr className="border-b"><td className="p-2 font-medium">Current Forward P/E</td><td className="p-2 text-right">22.0x</td><td className="p-2 text-right">14.0x</td><td className="p-2 text-right">15.0x</td><td className="p-2 text-right">12.0x</td></tr>
+                      <tr className="border-b bg-purple-50"><td className="p-2 font-medium">Target P/E</td><td className="p-2 text-right">20.0x</td><td className="p-2 text-right">14.0x</td><td className="p-2 text-right">14.5x</td><td className="p-2 text-right">12.0x</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Card className="bg-purple-50 border-purple-200 mt-4">
                   <CardContent className="pt-4">
-                    <p className="text-sm text-green-700">
-                      <strong>Valuation Impact:</strong> US equities have the largest valuation headwind (Current CAEY 2.48% vs Fair 5.00%),
-                      implying the market expects CAPE to compress from ~40x to ~20x over 20 years.
-                      Europe is at fair value (no headwind/tailwind). EM has a slight tailwind (6.50% vs fair 6.00%).
+                    <p className="text-sm text-purple-700">
+                      <strong>Revenue Growth</strong> is not listed above because it is auto-computed from macro:
+                      Revenue Growth = Regional Inflation + Regional GDP + Wedge. For example, US default ≈ 2.29% + 1.20% + 2.00% = 5.49%.
+                      The Revenue-GDP Wedge captures how corporate revenue growth differs from nominal GDP (e.g., US companies have global revenue exposure).
                     </p>
                   </CardContent>
                 </Card>
@@ -857,6 +1074,37 @@ export default function MethodologyPage() {
           </AccordionItem>
 
           <AccordionItem value="item-6">
+            <AccordionTrigger>What is the difference between the RA and Grinold-Kroner equity models?</AccordionTrigger>
+            <AccordionContent>
+              <p className="mb-2">The <strong>RA Model</strong> uses CAEY (cyclically adjusted earnings yield) for valuation and produces a <strong>real</strong> return (DY + EPS Growth + Valuation). You add inflation to get nominal.</p>
+              <p className="mb-2">The <strong>Grinold-Kroner Model</strong> uses forward P/E for valuation and produces a <strong>nominal</strong> return directly (DY + Buyback + Revenue Growth + Margin Change + Valuation). Revenue growth is auto-computed from macro unless overridden.</p>
+              <p>Use the toggle in the <strong>Equity</strong> input tab to switch between them. All four equity regions switch together.</p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-7">
+            <AccordionTrigger>Why does Revenue Growth differ from what I entered?</AccordionTrigger>
+            <AccordionContent>
+              <p className="mb-2">In the GK model, Revenue Growth is <strong>auto-computed</strong> from macro forecasts:</p>
+              <p className="font-mono text-sm bg-slate-100 p-2 rounded mb-2">Revenue Growth = Regional Inflation + Regional Real GDP + Revenue-GDP Wedge</p>
+              <p className="mb-2">The input field shows a static default (e.g., 2.5% for Japan) but the actual calculation uses the live macro-derived value. If you want to use a specific value, type it directly into the field — this marks it as a user override and breaks the macro link.</p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-8">
+            <AccordionTrigger>What happens when I switch to EUR base currency?</AccordionTrigger>
+            <AccordionContent>
+              <p className="mb-2">Three things change:</p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li><strong>Liquidity & Absolute Return</strong> switch to the Eurozone T-Bill rate (instead of US T-Bill).</li>
+                <li><strong>Non-EUR assets</strong> (US bonds, US/Japan/EM equities) get an FX adjustment added, based on carry (T-Bill differential) and PPP (inflation differential).</li>
+                <li>A <strong>Currency Adjustment card</strong> appears on the dashboard showing the FX methodology, per-pair breakdown, and per-asset impact.</li>
+              </ol>
+              <p className="mt-2">EUR-denominated assets (Equity Europe) are unaffected. All bond classes remain priced off US rates since they are USD-denominated instruments.</p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-9">
             <AccordionTrigger>How often should default values be updated?</AccordionTrigger>
             <AccordionContent>
               <div className="overflow-x-auto">
