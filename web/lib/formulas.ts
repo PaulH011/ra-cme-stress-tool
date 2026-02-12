@@ -432,4 +432,12 @@ export const INPUT_DISPLAY_NAMES: Record<string, string> = {
   margin_change: 'Margin Change',
   current_pe: 'Current P/E',
   target_pe: 'Target P/E',
+  // FX-related input names
+  fx_carry_component: 'FX Carry',
+  fx_ppp_component: 'FX PPP',
+  fx_return: 'FX Return',
+  fx_home_tbill: 'EUR T-Bill',
+  fx_foreign_tbill: 'Foreign T-Bill',
+  fx_home_inflation: 'EUR Inflation',
+  fx_foreign_inflation: 'Foreign Inflation',
 };

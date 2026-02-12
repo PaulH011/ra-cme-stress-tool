@@ -14,6 +14,7 @@ import { ResultsTable } from '@/components/results/ResultsTable';
 import { RiskReturnChart } from '@/components/results/RiskReturnChart';
 import { ExportButton } from '@/components/results/ExportButton';
 import { ActiveOverridesSummary } from '@/components/results/ActiveOverridesSummary';
+import { FxExplanation } from '@/components/results/FxExplanation';
 import { ScenarioManager } from '@/components/scenarios/ScenarioManager';
 import { useCalculation } from '@/hooks/useCalculation';
 import { useInputStore } from '@/stores/inputStore';
@@ -274,6 +275,21 @@ export default function Dashboard() {
             />
           </CardContent>
         </Card>
+
+        {/* FX Adjustment Explanation (EUR base only) */}
+        {results && baseCurrency === 'eur' && results.fx_forecasts && (
+          <Card className="border-blue-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                Currency Adjustment
+                <span className="text-sm font-normal text-slate-500">(EUR Base)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FxExplanation results={results} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Risk-Return Chart */}
         <Card>

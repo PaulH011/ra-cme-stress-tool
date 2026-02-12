@@ -107,6 +107,8 @@ const KEY_ALIASES: Record<string, string[]> = {
   beta_profitability: ['factor_profitability'],
   beta_investment: ['factor_investment'],
   beta_momentum: ['factor_momentum'],
+  fx_carry_component: ['fx_carry'],
+  fx_ppp_component: ['fx_ppp'],
 };
 
 // Find input data from inputsUsed - handles prefixed keys from API
@@ -307,7 +309,7 @@ export function AssetBreakdown({ assetKey, result, isOpen }: AssetBreakdownProps
   const componentData = useMemo(() => {
     if (!formula || !result.components) return [];
 
-    return formula.components.map((comp) => {
+    const data = formula.components.map((comp) => {
       const rawValue = result.components[comp.key] || 0;
       // Negate subtracted components (e.g., credit_loss is returned as positive but subtracted in the formula)
       const chartValue = comp.subtract ? -Math.abs(rawValue) : rawValue;
@@ -321,6 +323,22 @@ export function AssetBreakdown({ assetKey, result, isOpen }: AssetBreakdownProps
         rawValue, // Keep original for display in Component Breakdown
       };
     });
+
+    // Append FX Return component if present (EUR base currency adjustments)
+    const fxReturn = result.components['fx_return'];
+    if (fxReturn !== undefined && Math.abs(fxReturn) > 0.0001) {
+      data.push({
+        name: 'FX Return',
+        value: fxReturn,
+        color: '#8b5cf6', // Purple for FX
+        formula: 'FX = 30% × (EUR T-Bill − Foreign T-Bill) + 70% × (EUR Infl − Foreign Infl)',
+        description: 'Currency adjustment using RA PPP-based methodology (EUR base)',
+        inputs: ['fx_carry_component', 'fx_ppp_component'],
+        rawValue: fxReturn,
+      });
+    }
+
+    return data;
   }, [formula, result.components]);
 
   if (!isOpen || !formula) return null;
