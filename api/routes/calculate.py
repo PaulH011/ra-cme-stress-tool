@@ -58,6 +58,14 @@ async def calculate_full(request: CalculateRequest):
             }
 
         # Convert to JSON-serializable format
+        # Filter out 'global' from macro_forecasts (it only has rgdp_growth, no inflation/tbill)
+        macro_regions = ['us', 'eurozone', 'japan', 'em']
+
+        # Build FX forecasts if available (non-empty when base currency is EUR)
+        fx_forecasts = None
+        if results.fx_forecasts:
+            fx_forecasts = results.fx_forecasts
+
         return CalculateResponse(
             scenario_name=results.scenario_name,
             base_currency=results.base_currency,
@@ -73,12 +81,14 @@ async def calculate_full(request: CalculateRequest):
             },
             macro_forecasts={
                 region: {
-                    "rgdp_growth": data.get("rgdp_growth", 0),
-                    "inflation": data.get("inflation", 0),
-                    "tbill_rate": data.get("tbill_rate", 0),
+                    "rgdp_growth": macro[region].get("rgdp_growth", 0),
+                    "inflation": macro[region].get("inflation", 0),
+                    "tbill_rate": macro[region].get("tbill_rate", 0),
                 }
-                for region, data in macro.items()
-            }
+                for region in macro_regions
+                if region in macro
+            },
+            fx_forecasts=fx_forecasts,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

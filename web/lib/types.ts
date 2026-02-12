@@ -119,6 +119,11 @@ export interface CalculateResponse {
     inflation: number;
     tbill_rate: number;
   }>;
+  fx_forecasts?: Record<string, {
+    fx_change: number;
+    carry_component: number;
+    ppp_component: number;
+  }> | null;
 }
 
 // Macro preview response from API

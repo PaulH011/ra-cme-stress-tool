@@ -31,6 +31,10 @@ class CalculateResponse(BaseModel):
     base_currency: str
     results: Dict[str, AssetResult]
     macro_forecasts: Dict[str, Dict[str, float]]
+    fx_forecasts: Optional[Dict[str, Dict[str, float]]] = Field(
+        default=None,
+        description="FX forecasts when base currency is EUR (carry + PPP components)"
+    )
 
 
 class MacroPreviewResponse(BaseModel):
