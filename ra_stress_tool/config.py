@@ -147,6 +147,15 @@ EQUITY_PARAMS = {
 
 
 # =============================================================================
+# Grinold-Kroner Equity Model Parameters
+# =============================================================================
+
+EQUITY_PARAMS_GK = {
+    'pe_reversion_years': 10,             # Forecast horizon for P/E convergence
+}
+
+
+# =============================================================================
 # Hedge Fund Factor Parameters
 # =============================================================================
 
@@ -248,39 +257,71 @@ DEFAULT_ASSET_DATA = {
     },
 
     AssetClass.EQUITY_US: {
+        # RA model defaults
         'dividend_yield': 0.0113,              # 1.13% (S&P 500 TTM)
         'current_caey': 0.0248,                # 2.48% (CAPE ~40)
         'fair_caey': 0.05,                     # 5.0% (CAPE ~20)
         'real_eps_growth': 0.018,              # 1.8%
         'regional_eps_growth': 0.016,          # DM average
         'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
+        # GK model defaults (coexist; each model reads only its own keys)
+        'net_buyback_yield': 0.015,            # 1.5%
+        'revenue_gdp_wedge': 0.020,            # 2.0%
+        'revenue_growth': 0.055,               # 5.5% (computed from macro)
+        'margin_change': -0.005,               # -0.5%
+        'current_pe': 22.0,                    # Forward P/E
+        'target_pe': 20.0,                     # Equilibrium P/E
     },
 
     AssetClass.EQUITY_EUROPE: {
+        # RA model defaults
         'dividend_yield': 0.030,               # 3.0%
         'current_caey': 0.055,                 # 5.5%
         'fair_caey': 0.055,                    # 5.5%
         'real_eps_growth': 0.012,              # 1.2%
         'regional_eps_growth': 0.016,          # DM average
         'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
+        # GK model defaults
+        'net_buyback_yield': 0.005,            # 0.5%
+        'revenue_gdp_wedge': 0.005,            # 0.5%
+        'revenue_growth': 0.034,               # 3.4%
+        'margin_change': 0.000,                # 0.0%
+        'current_pe': 14.0,
+        'target_pe': 14.0,
     },
 
     AssetClass.EQUITY_JAPAN: {
+        # RA model defaults
         'dividend_yield': 0.022,               # 2.2%
         'current_caey': 0.055,                 # 5.5%
         'fair_caey': 0.05,                     # 5.0%
         'real_eps_growth': 0.008,              # 0.8%
         'regional_eps_growth': 0.016,          # DM average
         'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
+        # GK model defaults
+        'net_buyback_yield': 0.008,            # 0.8%
+        'revenue_gdp_wedge': 0.005,            # 0.5%
+        'revenue_growth': 0.025,               # 2.5%
+        'margin_change': 0.003,                # 0.3%
+        'current_pe': 15.0,
+        'target_pe': 14.5,
     },
 
     AssetClass.EQUITY_EM: {
+        # RA model defaults
         'dividend_yield': 0.030,               # 3.0%
         'current_caey': 0.065,                 # 6.5%
         'fair_caey': 0.06,                     # 6.0%
         'real_eps_growth': 0.030,              # 3.0%
         'regional_eps_growth': 0.028,          # EM average
         'reversion_speed': 1.0,                # 100% = full CAEY mean reversion
+        # GK model defaults
+        'net_buyback_yield': -0.015,           # -1.5%
+        'revenue_gdp_wedge': 0.005,            # 0.5%
+        'revenue_growth': 0.073,               # 7.3%
+        'margin_change': 0.000,                # 0.0%
+        'current_pe': 12.0,
+        'target_pe': 12.0,
     },
 
     AssetClass.ABSOLUTE_RETURN: {
@@ -291,6 +332,50 @@ DEFAULT_ASSET_DATA = {
         'beta_investment': 0.05,
         'beta_momentum': 0.10,
         'trading_alpha': 0.01,                 # 1% (50% of historical ~2%)
+    },
+}
+
+
+# =============================================================================
+# Grinold-Kroner Default Asset Data
+# Overlaid onto DEFAULT_ASSET_DATA when equity_model_type == "gk"
+# =============================================================================
+
+DEFAULT_ASSET_DATA_GK = {
+    AssetClass.EQUITY_US: {
+        'dividend_yield': 0.013,               # 1.3% (S&P 500 trailing)
+        'net_buyback_yield': 0.015,            # 1.5% (gross ~3% minus ~1.5% dilution)
+        'revenue_gdp_wedge': 0.020,            # 2.0% (S&P global revenue exposure)
+        'margin_change': -0.005,               # -0.5% (mild compression from peak)
+        'current_pe': 22.0,                    # Forward P/E
+        'target_pe': 20.0,                     # Long-run equilibrium P/E
+    },
+
+    AssetClass.EQUITY_EUROPE: {
+        'dividend_yield': 0.030,               # 3.0% (MSCI Europe)
+        'net_buyback_yield': 0.005,            # 0.5% (lower buyback culture)
+        'revenue_gdp_wedge': 0.005,            # 0.5%
+        'margin_change': 0.000,                # 0.0% (flat)
+        'current_pe': 14.0,                    # Forward P/E
+        'target_pe': 14.0,                     # Near fair value
+    },
+
+    AssetClass.EQUITY_JAPAN: {
+        'dividend_yield': 0.022,               # 2.2% (MSCI Japan)
+        'net_buyback_yield': 0.008,            # 0.8% (growing buyback trend)
+        'revenue_gdp_wedge': 0.005,            # 0.5%
+        'margin_change': 0.003,                # 0.3% (corporate governance reform)
+        'current_pe': 15.0,                    # Forward P/E
+        'target_pe': 14.5,                     # Slight contraction
+    },
+
+    AssetClass.EQUITY_EM: {
+        'dividend_yield': 0.030,               # 3.0% (MSCI EM)
+        'net_buyback_yield': -0.015,           # -1.5% (net dilution from issuance)
+        'revenue_gdp_wedge': 0.005,            # 0.5%
+        'margin_change': 0.000,                # 0.0% (flat)
+        'current_pe': 12.0,                    # Forward P/E
+        'target_pe': 12.0,                     # Near fair value
     },
 }
 

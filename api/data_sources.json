@@ -781,5 +781,189 @@
     "source_description": "Average hedge fund momentum factor beta. Carhart 4-factor model.",
     "lookup_hint": "Average hedge fund momentum factor beta exposure",
     "source_url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html"
+  },
+
+  "equity.us.net_buyback_yield": {
+    "display_name": "US Net Buyback Yield",
+    "category": "Equity (GK)",
+    "subcategory": "US",
+    "unit": "%",
+    "source_description": "S&P 500 gross share buyback yield minus new equity issuance/dilution. Yardeni Research, S&P Dow Jones Indices.",
+    "lookup_hint": "S&P 500 net share buyback yield gross buybacks minus dilution",
+    "source_url": "https://www.yardeni.com/pub/buybackdiv.pdf"
+  },
+  "equity.us.current_pe": {
+    "display_name": "US Current Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "US",
+    "unit": "x",
+    "source_description": "S&P 500 12-month forward price-to-earnings ratio. FactSet, Yardeni Research.",
+    "lookup_hint": "S&P 500 forward price to earnings PE ratio current",
+    "source_url": "https://www.yardeni.com/pub/yaborowth.pdf"
+  },
+  "equity.us.target_pe": {
+    "display_name": "US Target Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "US",
+    "unit": "x",
+    "source_description": "Long-run equilibrium forward P/E for the S&P 500. Based on historical average (~17-18x) and current structural factors.",
+    "lookup_hint": "S&P 500 long-term average forward PE ratio equilibrium",
+    "source_url": "https://www.yardeni.com/pub/yaborowth.pdf"
+  },
+  "equity.us.margin_change": {
+    "display_name": "US Annual Margin Change",
+    "category": "Equity (GK)",
+    "subcategory": "US",
+    "unit": "%",
+    "source_description": "Expected annual change in S&P 500 net profit margin. S&P Dow Jones Indices, FactSet.",
+    "lookup_hint": "S&P 500 net profit margin trend forecast compression expansion",
+    "source_url": "https://www.yardeni.com/pub/yaborowth.pdf"
+  },
+  "equity.us.revenue_gdp_wedge": {
+    "display_name": "US Revenue-GDP Wedge",
+    "category": "Equity (GK)",
+    "subcategory": "US",
+    "unit": "%",
+    "source_description": "Revenue premium of S&P 500 companies over US nominal GDP, driven by international revenue exposure (~40% for S&P 500).",
+    "lookup_hint": "S&P 500 revenue growth versus GDP growth international revenue exposure",
+    "source_url": null
+  },
+
+  "equity.europe.net_buyback_yield": {
+    "display_name": "Europe Net Buyback Yield",
+    "category": "Equity (GK)",
+    "subcategory": "Europe",
+    "unit": "%",
+    "source_description": "MSCI Europe net buyback yield. European buyback culture is lower than US.",
+    "lookup_hint": "MSCI Europe net share buyback yield",
+    "source_url": null
+  },
+  "equity.europe.current_pe": {
+    "display_name": "Europe Current Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "Europe",
+    "unit": "x",
+    "source_description": "MSCI Europe 12-month forward P/E ratio.",
+    "lookup_hint": "MSCI Europe forward PE ratio current",
+    "source_url": null
+  },
+  "equity.europe.target_pe": {
+    "display_name": "Europe Target Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "Europe",
+    "unit": "x",
+    "source_description": "Long-run equilibrium forward P/E for European equities.",
+    "lookup_hint": "MSCI Europe long-term average forward PE ratio",
+    "source_url": null
+  },
+  "equity.europe.margin_change": {
+    "display_name": "Europe Annual Margin Change",
+    "category": "Equity (GK)",
+    "subcategory": "Europe",
+    "unit": "%",
+    "source_description": "Expected annual change in MSCI Europe net profit margin.",
+    "lookup_hint": "MSCI Europe net profit margin trend",
+    "source_url": null
+  },
+  "equity.europe.revenue_gdp_wedge": {
+    "display_name": "Europe Revenue-GDP Wedge",
+    "category": "Equity (GK)",
+    "subcategory": "Europe",
+    "unit": "%",
+    "source_description": "Revenue premium of European equities over Eurozone nominal GDP.",
+    "lookup_hint": "European equity revenue growth versus GDP growth",
+    "source_url": null
+  },
+
+  "equity.japan.net_buyback_yield": {
+    "display_name": "Japan Net Buyback Yield",
+    "category": "Equity (GK)",
+    "subcategory": "Japan",
+    "unit": "%",
+    "source_description": "MSCI Japan net buyback yield. Growing trend due to corporate governance reform.",
+    "lookup_hint": "MSCI Japan net share buyback yield corporate governance reform",
+    "source_url": null
+  },
+  "equity.japan.current_pe": {
+    "display_name": "Japan Current Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "Japan",
+    "unit": "x",
+    "source_description": "MSCI Japan 12-month forward P/E ratio.",
+    "lookup_hint": "MSCI Japan forward PE ratio current",
+    "source_url": null
+  },
+  "equity.japan.target_pe": {
+    "display_name": "Japan Target Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "Japan",
+    "unit": "x",
+    "source_description": "Long-run equilibrium forward P/E for Japanese equities.",
+    "lookup_hint": "MSCI Japan long-term average forward PE ratio",
+    "source_url": null
+  },
+  "equity.japan.margin_change": {
+    "display_name": "Japan Annual Margin Change",
+    "category": "Equity (GK)",
+    "subcategory": "Japan",
+    "unit": "%",
+    "source_description": "Expected annual change in MSCI Japan net profit margin. Corporate governance reform driving expansion.",
+    "lookup_hint": "MSCI Japan net profit margin trend corporate reform",
+    "source_url": null
+  },
+  "equity.japan.revenue_gdp_wedge": {
+    "display_name": "Japan Revenue-GDP Wedge",
+    "category": "Equity (GK)",
+    "subcategory": "Japan",
+    "unit": "%",
+    "source_description": "Revenue premium of Japanese equities over Japan nominal GDP.",
+    "lookup_hint": "Japanese equity revenue growth versus GDP growth",
+    "source_url": null
+  },
+
+  "equity.em.net_buyback_yield": {
+    "display_name": "EM Net Buyback Yield",
+    "category": "Equity (GK)",
+    "subcategory": "EM",
+    "unit": "%",
+    "source_description": "MSCI EM net buyback yield. Typically negative due to net equity issuance/dilution.",
+    "lookup_hint": "MSCI Emerging Markets net share buyback yield dilution",
+    "source_url": null
+  },
+  "equity.em.current_pe": {
+    "display_name": "EM Current Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "EM",
+    "unit": "x",
+    "source_description": "MSCI Emerging Markets 12-month forward P/E ratio.",
+    "lookup_hint": "MSCI Emerging Markets forward PE ratio current",
+    "source_url": null
+  },
+  "equity.em.target_pe": {
+    "display_name": "EM Target Forward P/E",
+    "category": "Equity (GK)",
+    "subcategory": "EM",
+    "unit": "x",
+    "source_description": "Long-run equilibrium forward P/E for Emerging Market equities.",
+    "lookup_hint": "MSCI Emerging Markets long-term average forward PE ratio",
+    "source_url": null
+  },
+  "equity.em.margin_change": {
+    "display_name": "EM Annual Margin Change",
+    "category": "Equity (GK)",
+    "subcategory": "EM",
+    "unit": "%",
+    "source_description": "Expected annual change in MSCI EM net profit margin.",
+    "lookup_hint": "MSCI Emerging Markets net profit margin trend",
+    "source_url": null
+  },
+  "equity.em.revenue_gdp_wedge": {
+    "display_name": "EM Revenue-GDP Wedge",
+    "category": "Equity (GK)",
+    "subcategory": "EM",
+    "unit": "%",
+    "source_description": "Revenue premium of EM equities over EM aggregate nominal GDP.",
+    "lookup_hint": "Emerging Markets equity revenue growth versus GDP growth",
+    "source_url": null
   }
 }

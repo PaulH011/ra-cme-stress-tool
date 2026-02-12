@@ -5,7 +5,7 @@
  * Values are in percentage points (e.g., 2.29 means 2.29%)
  */
 
-import type { AllInputs } from './types';
+import type { AllInputs, EquityInputsGK, EquityRegion } from './types';
 
 export const DEFAULT_INPUTS: AllInputs = {
   macro: {
@@ -129,6 +129,46 @@ export const DEFAULT_INPUTS: AllInputs = {
     beta_profitability: 0.05,
     beta_investment: 0.05,
     beta_momentum: 0.10,
+  },
+};
+
+// Grinold-Kroner equity defaults (values in percentage points / ratios)
+export const DEFAULT_INPUTS_GK_EQUITY: Record<EquityRegion, EquityInputsGK> = {
+  us: {
+    dividend_yield: 1.30,
+    net_buyback_yield: 1.50,
+    revenue_growth: 5.50,          // computed: inflation 2.3 + GDP 1.2 + wedge 2.0
+    revenue_gdp_wedge: 2.00,
+    margin_change: -0.50,
+    current_pe: 22.0,
+    target_pe: 20.0,
+  },
+  europe: {
+    dividend_yield: 3.00,
+    net_buyback_yield: 0.50,
+    revenue_growth: 3.40,          // inflation 2.1 + GDP 0.8 + wedge 0.5
+    revenue_gdp_wedge: 0.50,
+    margin_change: 0.00,
+    current_pe: 14.0,
+    target_pe: 14.0,
+  },
+  japan: {
+    dividend_yield: 2.20,
+    net_buyback_yield: 0.80,
+    revenue_growth: 2.50,          // inflation 1.7 + GDP 0.3 + wedge 0.5
+    revenue_gdp_wedge: 0.50,
+    margin_change: 0.30,
+    current_pe: 15.0,
+    target_pe: 14.5,
+  },
+  em: {
+    dividend_yield: 3.00,
+    net_buyback_yield: -1.50,
+    revenue_growth: 7.30,          // inflation 3.8 + GDP 3.0 + wedge 0.5
+    revenue_gdp_wedge: 0.50,
+    margin_change: 0.00,
+    current_pe: 12.0,
+    target_pe: 12.0,
   },
 };
 

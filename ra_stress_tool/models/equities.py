@@ -1,7 +1,12 @@
 """
 Equity return models for US, Europe, Japan, and Emerging Markets.
 
-E[Equity Return] = Dividend Yield + Real EPS Growth + Valuation Change
+RA Model:
+  E[Equity Return] = Dividend Yield + Real EPS Growth + Valuation Change (CAEY)
+
+Grinold-Kroner Model:
+  E[Equity Return] = Dividend Yield + Net Buyback Yield + Revenue Growth
+                     + Margin Change + Valuation Change (P/E)
 """
 
 from typing import Dict, Any, Optional
@@ -385,3 +390,278 @@ def compute_regional_average_eps(
         avg_eps += weight * eps
 
     return avg_eps
+
+
+# =============================================================================
+# Grinold-Kroner Equity Model
+# =============================================================================
+
+@dataclass
+class EquityForecastGK:
+    """Container for Grinold-Kroner equity return forecasts."""
+    expected_return_nominal: float
+    expected_return_real: float  # back-computed: nominal - inflation
+
+    # Component breakdown (all nominal)
+    dividend_yield: float
+    net_buyback_yield: float
+    revenue_growth: float
+    margin_change: float
+    valuation_change: float
+
+    # Inflation used for real-return back-computation
+    inflation: float
+
+    # Whether revenue growth was auto-computed from macro or directly overridden
+    revenue_growth_is_computed: bool
+
+    # Full component details
+    components: Dict[str, Any]
+    sources: Dict[str, str]
+
+
+class EquityModelGK:
+    """
+    Grinold-Kroner equity return model.
+
+    E[Nominal Return] = Dividend Yield + Net Buyback Yield + Revenue Growth
+                        + Margin Change + Valuation Change (P/E)
+
+    Revenue growth is nominal (inflation embedded) and auto-computed from
+    macro forecasts when the user has not overridden it directly:
+      Revenue Growth = Regional Inflation + Regional GDP + Revenue-GDP Wedge
+
+    Valuation change uses forward P/E reversion:
+      Valuation Change = (target_pe / current_pe)^(1/horizon) - 1
+    """
+
+    REGION_TO_ASSET = {
+        EquityRegion.US: AssetClass.EQUITY_US,
+        EquityRegion.EUROPE: AssetClass.EQUITY_EUROPE,
+        EquityRegion.JAPAN: AssetClass.EQUITY_JAPAN,
+        EquityRegion.EM: AssetClass.EQUITY_EM,
+    }
+
+    def __init__(self, override_manager: OverrideManager):
+        self.overrides = override_manager
+
+    def get_inputs(self, region: EquityRegion) -> Dict[str, TrackedValue]:
+        """Get GK inputs for a specific equity region."""
+        asset_class = self.REGION_TO_ASSET[region]
+        return self.overrides.get_asset_inputs(asset_class)
+
+    # ----- Component methods -----
+
+    def forecast_dividend_yield(self, region: EquityRegion) -> Dict[str, TrackedValue]:
+        """Current trailing dividend yield (no mean reversion)."""
+        inputs = self.get_inputs(region)
+        dividend_yield = inputs.get('dividend_yield', TrackedValue(0.02, InputSource.DEFAULT))
+        return {
+            'dividend_yield': dividend_yield,
+        }
+
+    def forecast_buyback_yield(self, region: EquityRegion) -> Dict[str, TrackedValue]:
+        """
+        Net buyback yield = gross buybacks - dilution from issuance.
+
+        Positive for US (~1.5%), negative for EM (~-1.5%).
+        """
+        inputs = self.get_inputs(region)
+        net_buyback_yield = inputs.get(
+            'net_buyback_yield', TrackedValue(0.0, InputSource.DEFAULT)
+        )
+        return {
+            'net_buyback_yield': net_buyback_yield,
+        }
+
+    def forecast_revenue_growth(
+        self,
+        region: EquityRegion,
+        macro_inflation: float,
+        macro_rgdp: float,
+    ) -> Dict[str, TrackedValue]:
+        """
+        Forecast nominal revenue growth.
+
+        Auto-computed from macro when not directly overridden:
+          revenue_growth = inflation + real_gdp + revenue_gdp_wedge
+
+        If the user has explicitly set revenue_growth as an override,
+        we use that value directly and mark it as such.
+        """
+        inputs = self.get_inputs(region)
+
+        wedge = inputs.get(
+            'revenue_gdp_wedge', TrackedValue(0.0, InputSource.DEFAULT)
+        )
+
+        # Check if revenue_growth was directly overridden by the user
+        revenue_growth_input = inputs.get('revenue_growth')
+
+        if revenue_growth_input is not None and revenue_growth_input.source == InputSource.OVERRIDE:
+            # User explicitly set revenue growth — use it, break macro link
+            computed_value = macro_inflation + macro_rgdp + wedge.value
+            return {
+                'revenue_growth': revenue_growth_input,
+                'revenue_growth_computed': TrackedValue(computed_value, InputSource.COMPUTED),
+                'revenue_gdp_wedge': wedge,
+                'macro_inflation': TrackedValue(macro_inflation, InputSource.COMPUTED),
+                'macro_rgdp': TrackedValue(macro_rgdp, InputSource.COMPUTED),
+                'is_computed': TrackedValue(False, InputSource.COMPUTED),
+            }
+        else:
+            # Auto-compute from macro
+            computed_value = macro_inflation + macro_rgdp + wedge.value
+            return {
+                'revenue_growth': TrackedValue(computed_value, InputSource.COMPUTED),
+                'revenue_growth_computed': TrackedValue(computed_value, InputSource.COMPUTED),
+                'revenue_gdp_wedge': wedge,
+                'macro_inflation': TrackedValue(macro_inflation, InputSource.COMPUTED),
+                'macro_rgdp': TrackedValue(macro_rgdp, InputSource.COMPUTED),
+                'is_computed': TrackedValue(True, InputSource.COMPUTED),
+            }
+
+    def forecast_margin_change(self, region: EquityRegion) -> Dict[str, TrackedValue]:
+        """
+        Annual profit margin change.
+
+        Positive = margin expansion (e.g., Japan corp reform).
+        Negative = margin compression (e.g., US from peak).
+        """
+        inputs = self.get_inputs(region)
+        margin_change = inputs.get(
+            'margin_change', TrackedValue(0.0, InputSource.DEFAULT)
+        )
+        return {
+            'margin_change': margin_change,
+        }
+
+    def forecast_valuation_change(
+        self,
+        region: EquityRegion,
+        forecast_horizon: int = 10,
+    ) -> Dict[str, TrackedValue]:
+        """
+        Valuation change from P/E mean reversion.
+
+        valuation_change = (target_pe / current_pe)^(1/horizon) - 1
+
+        This is a much smaller term than the CAEY-based RA model because
+        P/E changes are moderate (22→20 = ~-1%) compared to CAEY changes
+        (2.5%→5% = potentially -3 to -5%).
+        """
+        inputs = self.get_inputs(region)
+
+        current_pe = inputs.get('current_pe', TrackedValue(20.0, InputSource.DEFAULT))
+        target_pe = inputs.get('target_pe', TrackedValue(20.0, InputSource.DEFAULT))
+
+        if current_pe.value > 0 and target_pe.value > 0:
+            # Annualized P/E change
+            valuation_annual = (
+                (target_pe.value / current_pe.value) ** (1.0 / forecast_horizon) - 1
+            )
+        else:
+            valuation_annual = 0.0
+
+        return {
+            'valuation_change': TrackedValue(valuation_annual, InputSource.COMPUTED),
+            'current_pe': current_pe,
+            'target_pe': target_pe,
+            'forecast_horizon': TrackedValue(forecast_horizon, InputSource.DEFAULT),
+        }
+
+    # ----- Main computation -----
+
+    def compute_return(
+        self,
+        region: EquityRegion,
+        macro_inflation: float,
+        macro_rgdp: float,
+        forecast_horizon: int = 10,
+    ) -> EquityForecastGK:
+        """
+        Compute complete GK equity return forecast.
+
+        Parameters
+        ----------
+        region : EquityRegion
+            The equity region.
+        macro_inflation : float
+            Regional inflation forecast from macro model.
+        macro_rgdp : float
+            Regional real GDP growth from macro model.
+        forecast_horizon : int
+            Forecast horizon in years.
+
+        Returns
+        -------
+        EquityForecastGK
+            Complete forecast with components.
+        """
+        # 1. Dividend yield (income)
+        div_result = self.forecast_dividend_yield(region)
+        dividend_yield = div_result['dividend_yield'].value
+
+        # 2. Net buyback yield (income)
+        buyback_result = self.forecast_buyback_yield(region)
+        net_buyback_yield = buyback_result['net_buyback_yield'].value
+
+        # 3. Revenue growth (growth — linked to macro)
+        rev_result = self.forecast_revenue_growth(region, macro_inflation, macro_rgdp)
+        revenue_growth = rev_result['revenue_growth'].value
+        is_computed = rev_result['is_computed'].value
+
+        # 4. Margin change (growth)
+        margin_result = self.forecast_margin_change(region)
+        margin_change = margin_result['margin_change'].value
+
+        # 5. Valuation change (repricing)
+        val_result = self.forecast_valuation_change(region, forecast_horizon)
+        valuation_change = val_result['valuation_change'].value
+
+        # Total nominal return
+        expected_return_nominal = (
+            dividend_yield
+            + net_buyback_yield
+            + revenue_growth
+            + margin_change
+            + valuation_change
+        )
+
+        # Back-compute real return for display consistency
+        expected_return_real = expected_return_nominal - macro_inflation
+
+        # Combine components
+        components = {
+            'dividend': extract_values(div_result),
+            'buyback': extract_values(buyback_result),
+            'revenue': extract_values(rev_result),
+            'margin': extract_values(margin_result),
+            'valuation': extract_values(val_result),
+        }
+
+        # Track sources
+        sources = {}
+        for prefix, result in [
+            ('dividend', div_result),
+            ('buyback', buyback_result),
+            ('revenue', rev_result),
+            ('margin', margin_result),
+            ('valuation', val_result),
+        ]:
+            for key, tv in result.items():
+                sources[f"{prefix}.{key}"] = tv.source.value
+
+        return EquityForecastGK(
+            expected_return_nominal=expected_return_nominal,
+            expected_return_real=expected_return_real,
+            dividend_yield=dividend_yield,
+            net_buyback_yield=net_buyback_yield,
+            revenue_growth=revenue_growth,
+            margin_change=margin_change,
+            valuation_change=valuation_change,
+            inflation=macro_inflation,
+            revenue_growth_is_computed=is_computed,
+            components=components,
+            sources=sources,
+        )

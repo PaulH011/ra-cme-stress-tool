@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from .inputs.overrides import OverrideManager
 from .models.macro import MacroModel, compute_global_rgdp_growth
 from .models.bonds import GovernmentBondModel, HighYieldBondModel, EMBondModel
-from .models.equities import EquityModel, EquityRegion
+from .models.equities import EquityModel, EquityModelGK, EquityRegion
 from .models.alternatives import HedgeFundModel
 from .models.currency import FXModel
 from .output import CMEResults, AssetClassResult, MacroDependency, format_results_table, format_comparison_table
@@ -40,7 +40,12 @@ class CMEEngine:
         AssetClass.ABSOLUTE_RETURN: "Absolute Return (HF)",
     }
 
-    def __init__(self, overrides: Optional[Dict[str, Any]] = None, base_currency: str = 'usd'):
+    def __init__(
+        self,
+        overrides: Optional[Dict[str, Any]] = None,
+        base_currency: str = 'usd',
+        equity_model_type: str = 'ra',
+    ):
         """
         Initialize the CME engine.
 
@@ -50,13 +55,17 @@ class CMEEngine:
             User override dictionary. See OverrideManager for structure.
         base_currency : str, optional
             Base currency for return calculations ('usd' or 'eur'). Default is 'usd'.
+        equity_model_type : str, optional
+            Equity model to use: 'ra' (Research Affiliates) or 'gk' (Grinold-Kroner).
         """
         self.override_manager = OverrideManager(overrides)
         self.base_currency = BaseCurrency(base_currency.lower())
+        self.equity_model_type = equity_model_type
 
         # Initialize models
         self.macro_model = MacroModel(self.override_manager)
         self.equity_model = EquityModel(self.override_manager)
+        self.equity_model_gk = EquityModelGK(self.override_manager) if equity_model_type == 'gk' else None
         self.gov_bond_model = GovernmentBondModel(self.override_manager)
         self.hy_bond_model = HighYieldBondModel(self.override_manager)
         self.em_bond_model = EMBondModel(self.override_manager)
@@ -591,32 +600,36 @@ class CMEEngine:
             macro_dependencies=macro_deps,
         )
 
+    # Map equity region to macro region
+    EQUITY_TO_MACRO_REGION = {
+        EquityRegion.US: 'us',
+        EquityRegion.EUROPE: 'eurozone',
+        EquityRegion.JAPAN: 'japan',
+        EquityRegion.EM: 'em',
+    }
+
+    EQUITY_TO_ASSET = {
+        EquityRegion.US: AssetClass.EQUITY_US,
+        EquityRegion.EUROPE: AssetClass.EQUITY_EUROPE,
+        EquityRegion.JAPAN: AssetClass.EQUITY_JAPAN,
+        EquityRegion.EM: AssetClass.EQUITY_EM,
+    }
+
     def compute_equity_return(self, region: EquityRegion) -> AssetClassResult:
         """
         Compute expected return for an equity region.
-
-        Parameters
-        ----------
-        region : EquityRegion
-            The equity region.
-
-        Returns
-        -------
-        AssetClassResult
-            Equity return result.
+        Routes to RA or GK model based on equity_model_type.
         """
+        if self.equity_model_type == 'gk' and self.equity_model_gk is not None:
+            return self._compute_equity_return_gk(region)
+        return self._compute_equity_return_ra(region)
+
+    def _compute_equity_return_ra(self, region: EquityRegion) -> AssetClassResult:
+        """Compute equity return using the RA (Research Affiliates) model."""
         macro = self.compute_macro_forecasts()
         macro_sources = self._get_macro_sources()
 
-        # Map equity region to macro region
-        region_map = {
-            EquityRegion.US: 'us',
-            EquityRegion.EUROPE: 'eurozone',
-            EquityRegion.JAPAN: 'japan',
-            EquityRegion.EM: 'em',
-        }
-
-        macro_region = region_map[region]
+        macro_region = self.EQUITY_TO_MACRO_REGION[region]
         region_macro = macro[macro_region]
         global_rgdp = macro['global']['rgdp_growth']
 
@@ -626,15 +639,6 @@ class CMEEngine:
             global_rgdp_growth=global_rgdp,
         )
 
-        # Map region to asset class for naming
-        region_to_asset = {
-            EquityRegion.US: AssetClass.EQUITY_US,
-            EquityRegion.EUROPE: AssetClass.EQUITY_EUROPE,
-            EquityRegion.JAPAN: AssetClass.EQUITY_JAPAN,
-            EquityRegion.EM: AssetClass.EQUITY_EM,
-        }
-
-        # Build macro dependencies (equities use regional inflation + global GDP cap)
         macro_deps = self._build_macro_dependencies(
             asset_type='equity',
             macro_region=macro_region,
@@ -646,12 +650,81 @@ class CMEEngine:
         )
 
         return AssetClassResult(
-            asset_class=self.ASSET_NAMES[region_to_asset[region]],
+            asset_class=self.ASSET_NAMES[self.EQUITY_TO_ASSET[region]],
             expected_return_nominal=forecast.expected_return_nominal,
             expected_return_real=forecast.expected_return_real,
             components={
                 'dividend_yield': forecast.dividend_yield,
                 'real_eps_growth': forecast.real_eps_growth,
+                'valuation_change': forecast.valuation_change,
+            },
+            inputs_used=self._extract_equity_inputs(forecast),
+            macro_dependencies=macro_deps,
+        )
+
+    def _compute_equity_return_gk(self, region: EquityRegion) -> AssetClassResult:
+        """Compute equity return using the Grinold-Kroner model."""
+        from .models.equities import EquityForecastGK
+        from .output import MacroDependency
+
+        macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
+
+        macro_region = self.EQUITY_TO_MACRO_REGION[region]
+        region_macro = macro[macro_region]
+
+        # GK uses regional inflation + GDP for revenue growth computation
+        macro_inflation = region_macro['inflation']
+        macro_rgdp = region_macro['rgdp_growth']
+
+        forecast = self.equity_model_gk.compute_return(
+            region=region,
+            macro_inflation=macro_inflation,
+            macro_rgdp=macro_rgdp,
+        )
+
+        # Build GK-specific macro dependencies
+        # In GK, inflation and GDP flow through revenue growth (not as separate add-ons)
+        inf_source = macro_sources.get(f"{macro_region}.inflation_forecast", "default")
+        gdp_source = macro_sources.get(f"{macro_region}.rgdp_growth", "default")
+
+        macro_deps = {}
+
+        if forecast.revenue_growth_is_computed:
+            # Revenue growth is auto-computed from macro — both inflation and GDP are dependencies
+            macro_deps['inflation'] = MacroDependency(
+                macro_input=f"{macro_region}.inflation_forecast",
+                value_used=macro_inflation,
+                source=inf_source,
+                affects=['revenue_growth', 'expected_return_nominal'],
+                impact_description=f"Flows into revenue growth ({macro_inflation*100:.2f}% of {forecast.revenue_growth*100:.2f}%)",
+            )
+            macro_deps['rgdp'] = MacroDependency(
+                macro_input=f"{macro_region}.rgdp_growth",
+                value_used=macro_rgdp,
+                source=gdp_source,
+                affects=['revenue_growth', 'expected_return_nominal'],
+                impact_description=f"Flows into revenue growth ({macro_rgdp*100:.2f}% of {forecast.revenue_growth*100:.2f}%)",
+            )
+        else:
+            # Revenue growth was overridden — macro still affects real return back-computation
+            macro_deps['inflation'] = MacroDependency(
+                macro_input=f"{macro_region}.inflation_forecast",
+                value_used=macro_inflation,
+                source=inf_source,
+                affects=['expected_return_real'],
+                impact_description=f"Used for real return back-computation ({macro_inflation*100:.2f}%)",
+            )
+
+        return AssetClassResult(
+            asset_class=self.ASSET_NAMES[self.EQUITY_TO_ASSET[region]],
+            expected_return_nominal=forecast.expected_return_nominal,
+            expected_return_real=forecast.expected_return_real,
+            components={
+                'dividend_yield': forecast.dividend_yield,
+                'net_buyback_yield': forecast.net_buyback_yield,
+                'revenue_growth': forecast.revenue_growth,
+                'margin_change': forecast.margin_change,
                 'valuation_change': forecast.valuation_change,
             },
             inputs_used=self._extract_equity_inputs(forecast),

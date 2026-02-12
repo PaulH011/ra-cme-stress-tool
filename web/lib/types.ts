@@ -48,7 +48,7 @@ export interface BondInputs {
   recovery_rate?: number;
 }
 
-// Equity input structure
+// Equity input structure (RA model)
 export interface EquityInputs {
   dividend_yield: number;
   current_caey: number;
@@ -57,6 +57,20 @@ export interface EquityInputs {
   regional_eps_growth: number;
   reversion_speed: number;
 }
+
+// Equity input structure (Grinold-Kroner model)
+export interface EquityInputsGK {
+  dividend_yield: number;       // Current trailing dividend yield (%)
+  net_buyback_yield: number;    // Buybacks minus dilution (%)
+  revenue_growth: number;       // Nominal revenue growth (%) — computed from macro or overridden
+  revenue_gdp_wedge: number;    // Revenue premium over nominal GDP (%)
+  margin_change: number;        // Annual profit margin change (%)
+  current_pe: number;           // Current forward P/E ratio (x)
+  target_pe: number;            // Equilibrium P/E ratio (x)
+}
+
+// Equity model type toggle
+export type EquityModelType = 'ra' | 'gk';
 
 // Absolute return input structure
 export interface AbsoluteReturnInputs {
@@ -133,10 +147,10 @@ export interface Overrides {
   bonds_global?: Partial<BondInputs>;
   bonds_hy?: Partial<BondInputs>;
   bonds_em?: Partial<BondInputs>;
-  equity_us?: Partial<EquityInputs>;
-  equity_europe?: Partial<EquityInputs>;
-  equity_japan?: Partial<EquityInputs>;
-  equity_em?: Partial<EquityInputs>;
+  equity_us?: Partial<EquityInputs> | Partial<EquityInputsGK>;
+  equity_europe?: Partial<EquityInputs> | Partial<EquityInputsGK>;
+  equity_japan?: Partial<EquityInputs> | Partial<EquityInputsGK>;
+  equity_em?: Partial<EquityInputs> | Partial<EquityInputsGK>;
   absolute_return?: Partial<AbsoluteReturnInputs>;
 }
 

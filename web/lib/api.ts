@@ -50,7 +50,8 @@ export async function getDefaults(): Promise<AllInputs> {
 export async function calculateFull(
   overrides?: Overrides,
   baseCurrency: BaseCurrency = 'usd',
-  scenarioName: string = 'Current Scenario'
+  scenarioName: string = 'Current Scenario',
+  equityModel: string = 'ra'
 ): Promise<CalculateResponse> {
   return fetchAPI('/api/calculate/full', {
     method: 'POST',
@@ -58,6 +59,7 @@ export async function calculateFull(
       overrides,
       base_currency: baseCurrency,
       scenario_name: scenarioName,
+      equity_model: equityModel,
     }),
   });
 }

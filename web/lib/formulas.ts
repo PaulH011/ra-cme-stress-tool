@@ -312,6 +312,91 @@ export const ASSET_FORMULAS: Record<AssetClass, AssetFormula> = {
   },
 };
 
+// Grinold-Kroner equity formula components (shared across all 4 regions)
+const GK_EQUITY_COMPONENTS: FormulaComponent[] = [
+  {
+    key: 'dividend_yield',
+    name: 'Dividend Yield',
+    formula: 'DY = Current Trailing 12-Month Yield',
+    description: 'Income from dividends, taken at current market value',
+    inputs: ['dividend_yield'],
+    color: '#22c55e',
+  },
+  {
+    key: 'net_buyback_yield',
+    name: 'Net Buyback Yield',
+    formula: 'Buyback = Gross Buybacks - New Issuance',
+    description: 'Net shareholder yield from buybacks minus dilution',
+    inputs: ['net_buyback_yield'],
+    color: '#10b981',
+  },
+  {
+    key: 'revenue_growth',
+    name: 'Revenue Growth',
+    formula: 'RevGrowth = Inflation + Real GDP + Wedge',
+    description: 'Nominal revenue growth, auto-computed from macro or directly overridden',
+    inputs: ['revenue_growth', 'revenue_gdp_wedge'],
+    color: '#3b82f6',
+  },
+  {
+    key: 'margin_change',
+    name: 'Margin Change',
+    formula: 'Margin = Annual profit margin change',
+    description: 'Positive = expansion (e.g., reform), negative = compression from peak',
+    inputs: ['margin_change'],
+    color: '#6366f1',
+  },
+  {
+    key: 'valuation_change',
+    name: 'Valuation Change',
+    formula: 'Val = (Target P/E / Current P/E)^(1/10) - 1',
+    description: 'P/E convergence to equilibrium over 10-year horizon',
+    inputs: ['current_pe', 'target_pe'],
+    color: '#f59e0b',
+  },
+];
+
+// GK formula definitions for each equity region
+export const ASSET_FORMULAS_GK_EQUITY: Record<string, AssetFormula> = {
+  equity_us: {
+    mainFormula: 'E[Nominal Return] = DY + Buyback + RevGrowth + Margin + Valuation',
+    description: 'Grinold-Kroner decomposition: income, growth, and repricing.',
+    components: GK_EQUITY_COMPONENTS,
+  },
+  equity_europe: {
+    mainFormula: 'E[Nominal Return] = DY + Buyback + RevGrowth + Margin + Valuation',
+    description: 'Grinold-Kroner model for European equities.',
+    components: GK_EQUITY_COMPONENTS,
+  },
+  equity_japan: {
+    mainFormula: 'E[Nominal Return] = DY + Buyback + RevGrowth + Margin + Valuation',
+    description: 'Grinold-Kroner model for Japanese equities.',
+    components: GK_EQUITY_COMPONENTS,
+  },
+  equity_em: {
+    mainFormula: 'E[Nominal Return] = DY + Buyback + RevGrowth + Margin + Valuation',
+    description: 'Grinold-Kroner model for Emerging Market equities.',
+    components: GK_EQUITY_COMPONENTS,
+  },
+};
+
+/**
+ * Get the correct formula definitions based on equity model type.
+ * Non-equity formulas are always from the RA set.
+ */
+export function getAssetFormulas(equityModelType: 'ra' | 'gk' = 'ra'): Record<AssetClass, AssetFormula> {
+  if (equityModelType === 'gk') {
+    return {
+      ...ASSET_FORMULAS,
+      equity_us: ASSET_FORMULAS_GK_EQUITY.equity_us,
+      equity_europe: ASSET_FORMULAS_GK_EQUITY.equity_europe,
+      equity_japan: ASSET_FORMULAS_GK_EQUITY.equity_japan,
+      equity_em: ASSET_FORMULAS_GK_EQUITY.equity_em,
+    };
+  }
+  return ASSET_FORMULAS;
+}
+
 // Human-readable input names
 export const INPUT_DISPLAY_NAMES: Record<string, string> = {
   current_yield: 'Current Yield',
@@ -340,4 +425,11 @@ export const INPUT_DISPLAY_NAMES: Record<string, string> = {
   beta_investment: 'Investment β',
   beta_momentum: 'Momentum β',
   trading_alpha: 'Trading Alpha',
+  // GK-specific input names
+  net_buyback_yield: 'Net Buyback Yield',
+  revenue_growth: 'Revenue Growth',
+  revenue_gdp_wedge: 'Revenue-GDP Wedge',
+  margin_change: 'Margin Change',
+  current_pe: 'Current P/E',
+  target_pe: 'Target P/E',
 };

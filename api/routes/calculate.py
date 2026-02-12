@@ -34,7 +34,8 @@ async def calculate_full(request: CalculateRequest):
     try:
         engine = CMEEngine(
             overrides=request.overrides,
-            base_currency=request.base_currency.lower()
+            base_currency=request.base_currency.lower(),
+            equity_model_type=request.equity_model,
         )
         results = engine.compute_all_returns(request.scenario_name)
 

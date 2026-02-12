@@ -12,7 +12,8 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
-import { ASSET_FORMULAS, INPUT_DISPLAY_NAMES } from '@/lib/formulas';
+import { ASSET_FORMULAS, getAssetFormulas, INPUT_DISPLAY_NAMES } from '@/lib/formulas';
+import { useInputStore } from '@/stores/inputStore';
 import type { AssetClass, AssetResult, MacroDependency } from '@/lib/types';
 
 interface AssetBreakdownProps {
@@ -298,7 +299,9 @@ function MacroDependencies({
 }
 
 export function AssetBreakdown({ assetKey, result, isOpen }: AssetBreakdownProps) {
-  const formula = ASSET_FORMULAS[assetKey];
+  const { equityModelType } = useInputStore();
+  const formulas = getAssetFormulas(equityModelType);
+  const formula = formulas[assetKey];
 
   // Build component data with actual values from result
   const componentData = useMemo(() => {

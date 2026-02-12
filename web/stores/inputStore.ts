@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand';
-import { DEFAULT_INPUTS, DIRECT_FORECAST_KEYS } from '@/lib/constants';
+import { DEFAULT_INPUTS, DEFAULT_INPUTS_GK_EQUITY, DIRECT_FORECAST_KEYS } from '@/lib/constants';
 import { getDefaults } from '@/lib/api';
 import type {
   MacroInputs,
@@ -14,7 +14,9 @@ import type {
   BondInputs,
   BondType,
   EquityInputs,
+  EquityInputsGK,
   EquityRegion,
+  EquityModelType,
   AbsoluteReturnInputs,
   BaseCurrency,
   Overrides,
@@ -26,8 +28,12 @@ interface InputState {
   macro: Record<MacroRegion, MacroInputs>;
   bonds: Record<BondType, BondInputs>;
   equity: Record<EquityRegion, EquityInputs>;
+  equityGK: Record<EquityRegion, EquityInputsGK>;
   absoluteReturn: AbsoluteReturnInputs;
   baseCurrency: BaseCurrency;
+
+  // Equity model toggle
+  equityModelType: EquityModelType;
 
   // Dynamic defaults fetched from API (null until loaded)
   fetchedDefaults: AllInputs | null;
@@ -47,6 +53,8 @@ interface InputState {
   isMacroDirty: (region: MacroRegion, key: keyof MacroInputs) => boolean;
   setBondValue: (type: BondType, key: keyof BondInputs, value: number) => void;
   setEquityValue: (region: EquityRegion, key: keyof EquityInputs, value: number) => void;
+  setEquityGKValue: (region: EquityRegion, key: keyof EquityInputsGK, value: number) => void;
+  setEquityModelType: (type: EquityModelType) => void;
   setAbsoluteReturnValue: (key: keyof AbsoluteReturnInputs, value: number) => void;
   setBaseCurrency: (currency: BaseCurrency) => void;
   setAdvancedMode: (enabled: boolean) => void;
@@ -67,8 +75,10 @@ export const useInputStore = create<InputState>((set, get) => ({
   macro: { ...DEFAULT_INPUTS.macro },
   bonds: { ...DEFAULT_INPUTS.bonds },
   equity: { ...DEFAULT_INPUTS.equity },
+  equityGK: { ...DEFAULT_INPUTS_GK_EQUITY },
   absoluteReturn: { ...DEFAULT_INPUTS.absolute_return },
   baseCurrency: 'usd',
+  equityModelType: 'gk' as EquityModelType,  // Default to GK on this branch for testing
   fetchedDefaults: null,
   advancedMode: false,
   _dirtyMacroFields: {},
@@ -170,6 +180,19 @@ export const useInputStore = create<InputState>((set, get) => ({
       },
     })),
 
+  setEquityGKValue: (region, key, value) =>
+    set((state) => ({
+      equityGK: {
+        ...state.equityGK,
+        [region]: {
+          ...state.equityGK[region],
+          [key]: value,
+        },
+      },
+    })),
+
+  setEquityModelType: (type) => set({ equityModelType: type }),
+
   setAbsoluteReturnValue: (key, value) =>
     set((state) => ({
       absoluteReturn: {
@@ -188,6 +211,7 @@ export const useInputStore = create<InputState>((set, get) => ({
       macro: { ...defaults.macro },
       bonds: { ...defaults.bonds },
       equity: { ...defaults.equity },
+      equityGK: { ...DEFAULT_INPUTS_GK_EQUITY },
       absoluteReturn: { ...defaults.absolute_return },
       _dirtyMacroFields: {},
     });
@@ -331,22 +355,52 @@ export const useInputStore = create<InputState>((set, get) => ({
       }
     }
 
-    // Check equity differences
-    for (const region of ['us', 'europe', 'japan', 'em'] as EquityRegion[]) {
-      const current = state.equity[region];
-      const eqDefaults = defaults.equity[region];
-      const equityOverrides: Partial<EquityInputs> = {};
+    // Check equity differences (RA or GK depending on model type)
+    if (state.equityModelType === 'gk') {
+      // GK model overrides
+      const gkDefaults = DEFAULT_INPUTS_GK_EQUITY;
+      // Keys that are ratios (not percentage points) — send as-is, no /100
+      const gkRatioKeys = new Set(['current_pe', 'target_pe']);
 
-      for (const [key, value] of Object.entries(current)) {
-        const defaultValue = eqDefaults[key as keyof EquityInputs];
-        if (isDifferent(value as number, defaultValue as number)) {
-          equityOverrides[key as keyof EquityInputs] = (value as number) / 100;
+      for (const region of ['us', 'europe', 'japan', 'em'] as EquityRegion[]) {
+        const current = state.equityGK[region];
+        const regionDefaults = gkDefaults[region];
+        const equityOverrides: Record<string, number> = {};
+
+        for (const [key, value] of Object.entries(current)) {
+          const defaultValue = regionDefaults[key as keyof EquityInputsGK];
+          if (isDifferent(value as number, defaultValue as number)) {
+            if (gkRatioKeys.has(key)) {
+              equityOverrides[key] = value as number;
+            } else {
+              equityOverrides[key] = (value as number) / 100;
+            }
+          }
+        }
+
+        if (Object.keys(equityOverrides).length > 0) {
+          const overrideKey = `equity_${region}` as keyof Overrides;
+          (overrides as any)[overrideKey] = equityOverrides;
         }
       }
+    } else {
+      // RA model overrides (original logic)
+      for (const region of ['us', 'europe', 'japan', 'em'] as EquityRegion[]) {
+        const current = state.equity[region];
+        const eqDefaults = defaults.equity[region];
+        const equityOverrides: Partial<EquityInputs> = {};
 
-      if (Object.keys(equityOverrides).length > 0) {
-        const overrideKey = `equity_${region}` as keyof Overrides;
-        (overrides as any)[overrideKey] = equityOverrides;
+        for (const [key, value] of Object.entries(current)) {
+          const defaultValue = eqDefaults[key as keyof EquityInputs];
+          if (isDifferent(value as number, defaultValue as number)) {
+            equityOverrides[key as keyof EquityInputs] = (value as number) / 100;
+          }
+        }
+
+        if (Object.keys(equityOverrides).length > 0) {
+          const overrideKey = `equity_${region}` as keyof Overrides;
+          (overrides as any)[overrideKey] = equityOverrides;
+        }
       }
     }
 

@@ -18,6 +18,10 @@ class CalculateRequest(BaseModel):
         default="Current Scenario",
         description="Name for this calculation scenario"
     )
+    equity_model: str = Field(
+        default="ra",
+        description="Equity model: 'ra' (Research Affiliates) or 'gk' (Grinold-Kroner)"
+    )
 
     class Config:
         json_schema_extra = {

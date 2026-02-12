@@ -3,7 +3,6 @@
 from .requests import (
     CalculateRequest,
     MacroPreviewRequest,
-    ScenarioCreateRequest,
 )
 from .responses import (
     CalculateResponse,
@@ -15,7 +14,6 @@ from .responses import (
 __all__ = [
     "CalculateRequest",
     "MacroPreviewRequest",
-    "ScenarioCreateRequest",
     "CalculateResponse",
     "MacroPreviewResponse",
     "AssetResult",

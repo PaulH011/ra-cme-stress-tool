@@ -23,7 +23,7 @@ export function useCalculation(): UseCalculationResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { getOverrides, baseCurrency } = useInputStore();
+  const { getOverrides, baseCurrency, equityModelType } = useInputStore();
 
   const calculate = useCallback(async () => {
     setIsLoading(true);
@@ -34,8 +34,8 @@ export function useCalculation(): UseCalculationResult {
 
       // Calculate current scenario and base case in parallel
       const [currentResults, defaultResults] = await Promise.all([
-        calculateFull(overrides, baseCurrency, 'Current Scenario'),
-        calculateFull(undefined, baseCurrency, 'RA Defaults'),
+        calculateFull(overrides, baseCurrency, 'Current Scenario', equityModelType),
+        calculateFull(undefined, baseCurrency, 'Defaults', equityModelType),
       ]);
 
       setResults(currentResults);
@@ -45,7 +45,7 @@ export function useCalculation(): UseCalculationResult {
     } finally {
       setIsLoading(false);
     }
-  }, [getOverrides, baseCurrency]);
+  }, [getOverrides, baseCurrency, equityModelType]);
 
   // Auto-calculate on mount and when currency changes
   useEffect(() => {
