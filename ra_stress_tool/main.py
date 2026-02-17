@@ -33,7 +33,7 @@ class CMEEngine:
         AssetClass.BONDS_GLOBAL: "Bonds Global (Gov)",
         AssetClass.BONDS_HY: "Bonds High Yield",
         AssetClass.BONDS_EM: "Bonds EM (Hard Currency)",
-        AssetClass.INFLATION_LINKED: "Inflation Linked",
+        AssetClass.INFLATION_LINKED: "Bonds Inflation Linked",
         AssetClass.EQUITY_US: "Equity US",
         AssetClass.EQUITY_EUROPE: "Equity Europe",
         AssetClass.EQUITY_JAPAN: "Equity Japan",

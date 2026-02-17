@@ -12,7 +12,7 @@ const BOND_TYPES: { key: BondType; label: string; description: string }[] = [
   { key: 'global', label: 'Global Gov', description: 'Developed market government bonds' },
   { key: 'hy', label: 'High Yield', description: 'US high yield corporate bonds' },
   { key: 'em', label: 'EM Hard', description: 'EM USD-denominated sovereign bonds' },
-  { key: 'inflation_linked', label: 'Inflation Linked', description: 'USD TIPS or EUR inflation-linked sovereigns (by base currency)' },
+  { key: 'inflation_linked', label: 'Bonds Inflation Linked', description: 'USD TIPS or EUR inflation-linked sovereigns (by base currency)' },
 ];
 
 function BondTypeInputs({ bondType }: { bondType: Exclude<BondType, 'inflation_linked'> }) {

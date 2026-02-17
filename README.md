@@ -26,7 +26,7 @@ An admin panel enables quarterly AI-powered refreshes of market data assumptions
 
 ## Features
 
-- **9 asset classes**: Liquidity, Global Bonds, High Yield Bonds, EM Bonds, US/Europe/Japan/EM Equities, Absolute Return
+- **10 asset classes**: Liquidity, Bonds Global, Bonds High Yield, Bonds EM, Bonds Inflation Linked, US/Europe/Japan/EM Equities, Absolute Return
 - **Building-block methodology**: Each return is decomposed (yield + growth + valuation + currency, etc.)
 - **Full override system**: Change any input assumption and see the impact in real time
 - **Advanced mode**: Exposes additional parameters like valuation reversion speed (lambda)
@@ -111,6 +111,7 @@ An admin panel enables quarterly AI-powered refreshes of market data assumptions
 | **Bonds Global** | Yield + Roll Return + Valuation − Credit Loss | Current yield, duration, term premium |
 | **Bonds HY** | Yield + Roll Return + Valuation − Credit Loss | Yield, credit spread, default rate, recovery rate |
 | **Bonds EM** | Yield + Roll Return + Valuation − Credit Loss | Yield, duration, default rate, recovery rate |
+| **Bonds Inflation Linked** | Real Carry + Real Roll + Real Valuation + Inflation Indexation − Lag Drag | Current real yield, duration, real term premium, inflation beta, lag drag |
 | **Equity (4 regions)** | Dividend Yield + Real EPS Growth + Inflation + Valuation Change | Dividend yield, CAEY, fair CAEY, EPS growth, reversion speed (λ) |
 | **Absolute Return** | Risk-Free + Σ(β × Factor Premium) + Alpha | Factor betas, trading alpha, market/size/value/momentum |
 

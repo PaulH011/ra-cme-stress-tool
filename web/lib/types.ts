@@ -197,7 +197,7 @@ export const ASSET_DISPLAY_INFO: AssetDisplayInfo[] = [
   { key: 'bonds_global', name: 'Bonds Global', icon: '🏛️', volatility: 0.06 },
   { key: 'bonds_hy', name: 'Bonds HY', icon: '📊', volatility: 0.10 },
   { key: 'bonds_em', name: 'Bonds EM', icon: '🌍', volatility: 0.12 },
-  { key: 'inflation_linked', name: 'Inflation Linked', icon: '📈', volatility: 0.07 },
+  { key: 'inflation_linked', name: 'Bonds Inflation Linked', icon: '📈', volatility: 0.07 },
   { key: 'equity_us', name: 'Equity US', icon: '🇺🇸', volatility: 0.16 },
   { key: 'equity_europe', name: 'Equity Europe', icon: '🇪🇺', volatility: 0.18 },
   { key: 'equity_japan', name: 'Equity Japan', icon: '🇯🇵', volatility: 0.18 },

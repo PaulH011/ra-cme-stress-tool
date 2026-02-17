@@ -16,7 +16,7 @@ const ASSET_DISPLAY_NAMES: Record<string, string> = {
   bonds_global: 'Bonds Global',
   bonds_hy: 'Bonds HY',
   bonds_em: 'Bonds EM',
-  inflation_linked: 'Inflation Linked',
+  inflation_linked: 'Bonds Inflation Linked',
   equity_us: 'Equity US',
   equity_europe: 'Equity Europe',
   equity_japan: 'Equity Japan',

@@ -189,7 +189,7 @@ export default function MethodologyPage() {
               <tr className="border-b"><td className="p-2">Bonds Global</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
               <tr className="border-b"><td className="p-2">Bonds HY</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
               <tr className="border-b"><td className="p-2">Bonds EM</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
-              <tr className="border-b"><td className="p-2">Inflation Linked</td><td className="p-2">Base currency regime</td><td className="p-2">Uses USD TIPS regime</td><td className="p-2">Uses EUR ILB regime</td></tr>
+              <tr className="border-b"><td className="p-2">Bonds Inflation Linked</td><td className="p-2">Base currency regime</td><td className="p-2">Uses USD TIPS regime</td><td className="p-2">Uses EUR ILB regime</td></tr>
               <tr className="border-b"><td className="p-2">Equity US</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
               <tr className="border-b"><td className="p-2">Equity Europe</td><td className="p-2">EUR</td><td className="p-2">FX adjustment applied</td><td className="p-2">No FX adjustment</td></tr>
               <tr className="border-b"><td className="p-2">Equity Japan</td><td className="p-2">JPY</td><td className="p-2">FX adjustment applied</td><td className="p-2">FX adjustment applied</td></tr>
@@ -349,7 +349,7 @@ export default function MethodologyPage() {
             <TabsTrigger value="global">Bonds Global</TabsTrigger>
             <TabsTrigger value="hy">Bonds High Yield</TabsTrigger>
             <TabsTrigger value="em">Bonds EM</TabsTrigger>
-            <TabsTrigger value="inflation-linked">Inflation Linked</TabsTrigger>
+            <TabsTrigger value="inflation-linked">Bonds Inflation Linked</TabsTrigger>
           </TabsList>
 
           <TabsContent value="global" className="mt-4">
@@ -462,7 +462,7 @@ export default function MethodologyPage() {
           <TabsContent value="inflation-linked" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Inflation Linked (Regime-Based)</CardTitle>
+                <CardTitle className="text-lg">Bonds Inflation Linked (Regime-Based)</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="mb-4">
@@ -897,7 +897,7 @@ export default function MethodologyPage() {
                 <Card className="bg-blue-50 border-blue-200 mt-4">
                   <CardContent className="pt-4">
                     <p className="text-sm text-blue-700">
-                      <strong>Inflation Linked:</strong> Defaults are regime-specific. In USD base mode, the model uses
+                      <strong>Bonds Inflation Linked:</strong> Defaults are regime-specific. In USD base mode, the model uses
                       US TIPS assumptions; in EUR base mode, it uses EUR inflation-linked sovereign assumptions.
                       Inputs include current real yield, duration, real term premium, inflation beta, index lag drag,
                       and liquidity/technical adjustment.
