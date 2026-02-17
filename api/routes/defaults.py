@@ -91,6 +91,26 @@ INPUT_DEFAULTS = {
             "default_rate": 2.80,
             "recovery_rate": 55.0,
         },
+        "inflation_linked": {
+            "usd": {
+                "current_real_yield": 1.80,
+                "duration": 6.4,
+                "current_real_term_premium": 0.30,
+                "fair_real_term_premium": 0.20,
+                "inflation_beta": 1.00,
+                "index_lag_drag": 0.10,
+                "liquidity_technical": 0.05,
+            },
+            "eur": {
+                "current_real_yield": 0.75,
+                "duration": 7.5,
+                "current_real_term_premium": 0.15,
+                "fair_real_term_premium": 0.10,
+                "inflation_beta": 1.00,
+                "index_lag_drag": 0.15,
+                "liquidity_technical": 0.10,
+            },
+        },
     },
     "equity": {
         "us": {
@@ -183,6 +203,17 @@ _cache_timestamp: float = 0.0
 _CACHE_TTL_SECONDS = 300  # 5 minutes
 
 
+def _deep_merge(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge updates into base (updates take precedence)."""
+    merged = dict(base)
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def _get_supabase_client():
     """Get a Supabase client for fetching defaults."""
     try:
@@ -226,7 +257,9 @@ def get_current_defaults() -> Dict[str, Any]:
                 db_defaults = result.data[0]["defaults_json"]
                 if isinstance(db_defaults, str):
                     db_defaults = json.loads(db_defaults)
-                _cached_defaults = db_defaults
+                # Merge DB defaults onto hardcoded defaults so newly added keys
+                # are always available even before DB schema/default refresh.
+                _cached_defaults = _deep_merge(INPUT_DEFAULTS, db_defaults)
                 _cache_timestamp = now
                 logger.info("Loaded defaults from Supabase")
                 return _cached_defaults
@@ -282,11 +315,11 @@ async def get_bond_defaults(bond_type: str):
     Get bond defaults for a specific type.
 
     Parameters:
-        bond_type: global, hy, or em
+        bond_type: global, hy, em, or inflation_linked
     """
     defaults = get_current_defaults()
     if bond_type not in defaults["bonds"]:
-        return {"error": f"Unknown bond type: {bond_type}. Valid: global, hy, em"}
+        return {"error": f"Unknown bond type: {bond_type}. Valid: global, hy, em, inflation_linked"}
     return defaults["bonds"][bond_type]
 
 

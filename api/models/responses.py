@@ -64,7 +64,7 @@ class MacroRegionDefaults(BaseModel):
 class DefaultsResponse(BaseModel):
     """Response model for all default values."""
     macro: Dict[str, MacroRegionDefaults]
-    bonds: Dict[str, Dict[str, float]]
+    bonds: Dict[str, Any]
     equity: Dict[str, Dict[str, float]]
     absolute_return: Dict[str, float]
 

@@ -13,6 +13,8 @@ import type {
   MacroRegion,
   BondInputs,
   BondType,
+  InflationLinkedInputs,
+  InflationLinkedRegimeInputs,
   EquityInputs,
   EquityInputsGK,
   EquityRegion,
@@ -26,7 +28,7 @@ import type {
 interface InputState {
   // Current input values
   macro: Record<MacroRegion, MacroInputs>;
-  bonds: Record<BondType, BondInputs>;
+  bonds: AllInputs['bonds'];
   equity: Record<EquityRegion, EquityInputs>;
   equityGK: Record<EquityRegion, EquityInputsGK>;
   absoluteReturn: AbsoluteReturnInputs;
@@ -51,7 +53,12 @@ interface InputState {
   setMacroValue: (region: MacroRegion, key: keyof MacroInputs, value: number) => void;
   syncMacroComputed: (region: MacroRegion, computedValues: Partial<Record<string, number>>) => void;
   isMacroDirty: (region: MacroRegion, key: keyof MacroInputs) => boolean;
-  setBondValue: (type: BondType, key: keyof BondInputs, value: number) => void;
+  setBondValue: (type: Exclude<BondType, 'inflation_linked'>, key: keyof BondInputs, value: number) => void;
+  setInflationLinkedValue: (
+    regime: keyof InflationLinkedInputs,
+    key: keyof InflationLinkedRegimeInputs,
+    value: number
+  ) => void;
   setEquityValue: (region: EquityRegion, key: keyof EquityInputs, value: number) => void;
   setEquityGKValue: (region: EquityRegion, key: keyof EquityInputsGK, value: number) => void;
   setEquityModelType: (type: EquityModelType) => void;
@@ -138,7 +145,7 @@ export const useInputStore = create<InputState>((set, get) => ({
         if (!state._dirtyMacroFields[`${region}.${key}`]) {
           const currentVal = newRegionMacro[key as keyof MacroInputs];
           if (typeof value === 'number' && Math.abs(currentVal - value) > 0.001) {
-            (newRegionMacro as any)[key] = value;
+            newRegionMacro[key as keyof MacroInputs] = value;
             changed = true;
           }
         }
@@ -165,6 +172,20 @@ export const useInputStore = create<InputState>((set, get) => ({
         [type]: {
           ...state.bonds[type],
           [key]: value,
+        },
+      },
+    })),
+
+  setInflationLinkedValue: (regime, key, value) =>
+    set((state) => ({
+      bonds: {
+        ...state.bonds,
+        inflation_linked: {
+          ...state.bonds.inflation_linked,
+          [regime]: {
+            ...state.bonds.inflation_linked[regime],
+            [key]: value,
+          },
         },
       },
     })),
@@ -247,7 +268,7 @@ export const useInputStore = create<InputState>((set, get) => ({
     }
 
     // Apply bond overrides
-    for (const type of ['global', 'hy', 'em'] as BondType[]) {
+    for (const type of ['global', 'hy', 'em'] as Exclude<BondType, 'inflation_linked'>[]) {
       const key = `bonds_${type}` as keyof Overrides;
       if (overrides[key]) {
         newBonds[type] = {
@@ -255,6 +276,20 @@ export const useInputStore = create<InputState>((set, get) => ({
           ...overrides[key],
         };
       }
+    }
+
+    if (overrides.inflation_linked) {
+      newBonds.inflation_linked = {
+        ...newBonds.inflation_linked,
+        usd: {
+          ...newBonds.inflation_linked.usd,
+          ...(overrides.inflation_linked.usd || {}),
+        },
+        eur: {
+          ...newBonds.inflation_linked.eur,
+          ...(overrides.inflation_linked.eur || {}),
+        },
+      };
     }
 
     // Apply equity overrides
@@ -331,7 +366,7 @@ export const useInputStore = create<InputState>((set, get) => ({
     }
 
     // Check bond differences
-    for (const type of ['global', 'hy', 'em'] as BondType[]) {
+    for (const type of ['global', 'hy', 'em'] as Exclude<BondType, 'inflation_linked'>[]) {
       const current = state.bonds[type];
       const bondDefaults = defaults.bonds[type];
       const bondOverrides: Partial<BondInputs> = {};
@@ -350,9 +385,36 @@ export const useInputStore = create<InputState>((set, get) => ({
       }
 
       if (Object.keys(bondOverrides).length > 0) {
-        const overrideKey = `bonds_${type}` as keyof Overrides;
-        (overrides as any)[overrideKey] = bondOverrides;
+        if (type === 'global') overrides.bonds_global = bondOverrides;
+        if (type === 'hy') overrides.bonds_hy = bondOverrides;
+        if (type === 'em') overrides.bonds_em = bondOverrides;
       }
+    }
+
+    // Inflation-linked nested overrides
+    const ilOverrides: Overrides['inflation_linked'] = {};
+    for (const regime of ['usd', 'eur'] as const) {
+      const currentRegime = state.bonds.inflation_linked[regime];
+      const defaultRegime = defaults.bonds.inflation_linked[regime];
+      const regimeOverrides: Partial<InflationLinkedRegimeInputs> = {};
+
+      for (const [key, value] of Object.entries(currentRegime)) {
+        const defaultValue = defaultRegime[key as keyof InflationLinkedRegimeInputs];
+        if (isDifferent(value as number, defaultValue as number)) {
+          if (key === 'duration' || key === 'inflation_beta') {
+            regimeOverrides[key as keyof InflationLinkedRegimeInputs] = value as number;
+          } else {
+            regimeOverrides[key as keyof InflationLinkedRegimeInputs] = (value as number) / 100;
+          }
+        }
+      }
+
+      if (Object.keys(regimeOverrides).length > 0) {
+        ilOverrides[regime] = regimeOverrides;
+      }
+    }
+    if (Object.keys(ilOverrides).length > 0) {
+      overrides.inflation_linked = ilOverrides;
     }
 
     // Check equity differences (RA or GK depending on model type)
@@ -379,8 +441,10 @@ export const useInputStore = create<InputState>((set, get) => ({
         }
 
         if (Object.keys(equityOverrides).length > 0) {
-          const overrideKey = `equity_${region}` as keyof Overrides;
-          (overrides as any)[overrideKey] = equityOverrides;
+          if (region === 'us') overrides.equity_us = equityOverrides;
+          if (region === 'europe') overrides.equity_europe = equityOverrides;
+          if (region === 'japan') overrides.equity_japan = equityOverrides;
+          if (region === 'em') overrides.equity_em = equityOverrides;
         }
       }
     } else {
@@ -398,8 +462,10 @@ export const useInputStore = create<InputState>((set, get) => ({
         }
 
         if (Object.keys(equityOverrides).length > 0) {
-          const overrideKey = `equity_${region}` as keyof Overrides;
-          (overrides as any)[overrideKey] = equityOverrides;
+          if (region === 'us') overrides.equity_us = equityOverrides;
+          if (region === 'europe') overrides.equity_europe = equityOverrides;
+          if (region === 'japan') overrides.equity_japan = equityOverrides;
+          if (region === 'em') overrides.equity_em = equityOverrides;
         }
       }
     }

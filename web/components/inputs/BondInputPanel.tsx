@@ -12,9 +12,10 @@ const BOND_TYPES: { key: BondType; label: string; description: string }[] = [
   { key: 'global', label: 'Global Gov', description: 'Developed market government bonds' },
   { key: 'hy', label: 'High Yield', description: 'US high yield corporate bonds' },
   { key: 'em', label: 'EM Hard', description: 'EM USD-denominated sovereign bonds' },
+  { key: 'inflation_linked', label: 'Inflation Linked', description: 'USD TIPS or EUR inflation-linked sovereigns (by base currency)' },
 ];
 
-function BondTypeInputs({ bondType }: { bondType: BondType }) {
+function BondTypeInputs({ bondType }: { bondType: Exclude<BondType, 'inflation_linked'> }) {
   const { bonds, setBondValue, advancedMode } = useInputStore();
   const inputs = bonds[bondType];
   const defaults = DEFAULT_INPUTS.bonds[bondType];
@@ -153,11 +154,123 @@ function BondTypeInputs({ bondType }: { bondType: BondType }) {
   );
 }
 
+function InflationLinkedInputs() {
+  const { bonds, setInflationLinkedValue, advancedMode, baseCurrency } = useInputStore();
+  const activeRegime = baseCurrency === 'eur' ? 'eur' : 'usd';
+  const inputs = bonds.inflation_linked[activeRegime];
+  const defaults = DEFAULT_INPUTS.bonds.inflation_linked[activeRegime];
+
+  const handleChange = (key: keyof typeof inputs, value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue)) {
+      setInflationLinkedValue(activeRegime, key, numValue);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border bg-blue-50 border-blue-200 px-3 py-2 text-xs text-blue-800">
+        {activeRegime === 'usd' ? 'USD mode: using TIPS assumptions' : 'EUR mode: using EUR inflation-linked assumptions'}
+      </div>
+
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium text-slate-700">Primary Inputs</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Current Real Yield (%)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={inputs.current_real_yield}
+              onChange={(e) => handleChange('current_real_yield', e.target.value)}
+              className="h-8 text-sm"
+            />
+            <p className="text-xs text-slate-400">Default: {defaults.current_real_yield}%</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Duration (years)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={inputs.duration}
+              onChange={(e) => handleChange('duration', e.target.value)}
+              className="h-8 text-sm"
+            />
+            <p className="text-xs text-slate-400">Default: {defaults.duration} yrs</p>
+          </div>
+        </div>
+      </div>
+
+      {advancedMode && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-slate-700">Building Blocks</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Current Real Term Premium (%)</Label>
+                <Input
+                  type="number"
+                  step="0.05"
+                  value={inputs.current_real_term_premium}
+                  onChange={(e) => handleChange('current_real_term_premium', e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Fair Real Term Premium (%)</Label>
+                <Input
+                  type="number"
+                  step="0.05"
+                  value={inputs.fair_real_term_premium}
+                  onChange={(e) => handleChange('fair_real_term_premium', e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Inflation Beta (x)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={inputs.inflation_beta}
+                  onChange={(e) => handleChange('inflation_beta', e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Index Lag Drag (%)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={inputs.index_lag_drag}
+                  onChange={(e) => handleChange('index_lag_drag', e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Liquidity/Technical (%)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={inputs.liquidity_technical}
+                  onChange={(e) => handleChange('liquidity_technical', e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function BondInputPanel() {
   return (
     <div className="space-y-4">
       <Tabs defaultValue="global" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           {BOND_TYPES.map(({ key, label }) => (
             <TabsTrigger key={key} value={key} className="text-xs">
               {label}
@@ -168,7 +281,11 @@ export function BondInputPanel() {
         {BOND_TYPES.map(({ key, description }) => (
           <TabsContent key={key} value={key} className="mt-4">
             <p className="text-xs text-slate-500 mb-3">{description}</p>
-            <BondTypeInputs bondType={key} />
+            {key === 'inflation_linked' ? (
+              <InflationLinkedInputs />
+            ) : (
+              <BondTypeInputs bondType={key} />
+            )}
           </TabsContent>
         ))}
       </Tabs>

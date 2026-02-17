@@ -189,6 +189,7 @@ export default function MethodologyPage() {
               <tr className="border-b"><td className="p-2">Bonds Global</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
               <tr className="border-b"><td className="p-2">Bonds HY</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
               <tr className="border-b"><td className="p-2">Bonds EM</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
+              <tr className="border-b"><td className="p-2">Inflation Linked</td><td className="p-2">Base currency regime</td><td className="p-2">Uses USD TIPS regime</td><td className="p-2">Uses EUR ILB regime</td></tr>
               <tr className="border-b"><td className="p-2">Equity US</td><td className="p-2">USD</td><td className="p-2">No FX adjustment</td><td className="p-2">FX adjustment applied</td></tr>
               <tr className="border-b"><td className="p-2">Equity Europe</td><td className="p-2">EUR</td><td className="p-2">FX adjustment applied</td><td className="p-2">No FX adjustment</td></tr>
               <tr className="border-b"><td className="p-2">Equity Japan</td><td className="p-2">JPY</td><td className="p-2">FX adjustment applied</td><td className="p-2">FX adjustment applied</td></tr>
@@ -344,10 +345,11 @@ export default function MethodologyPage() {
         </div>
 
         <Tabs defaultValue="global" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="global">Bonds Global</TabsTrigger>
             <TabsTrigger value="hy">Bonds High Yield</TabsTrigger>
             <TabsTrigger value="em">Bonds EM</TabsTrigger>
+            <TabsTrigger value="inflation-linked">Inflation Linked</TabsTrigger>
           </TabsList>
 
           <TabsContent value="global" className="mt-4">
@@ -452,6 +454,42 @@ export default function MethodologyPage() {
                       <tr className="border-b"><td className="p-2">Recovery Rate</td><td className="p-2">55%</td><td className="p-2">Typical EM sovereign recovery</td></tr>
                     </tbody>
                   </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inflation-linked" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Inflation Linked (Regime-Based)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4">
+                  Inflation-linked bonds switch regime based on base currency:
+                  <strong> USD base uses US TIPS</strong>, and <strong>EUR base uses EUR inflation-linked sovereigns</strong>.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="font-mono text-sm mb-2"><strong>E[Real Return] = Real Carry + Real Roll + Real Valuation + Liquidity/Technical</strong></p>
+                  <p className="font-mono text-sm"><strong>E[Nominal Return] = E[Real Return] + Inflation Indexation - Index Lag Drag</strong></p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2">USD (TIPS) Defaults</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>Current Real Yield: 1.80%</li>
+                      <li>Duration: 6.4 years</li>
+                      <li>Index Lag Drag: 0.10%</li>
+                    </ul>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2">EUR (ILBs) Defaults</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>Current Real Yield: 0.75%</li>
+                      <li>Duration: 7.5 years</li>
+                      <li>Index Lag Drag: 0.15%</li>
+                    </ul>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -852,6 +890,17 @@ export default function MethodologyPage() {
                       <strong>Credit Loss Formula:</strong> Annual Credit Loss = Default Rate x (1 - Recovery Rate).
                       Bonds Global (government bonds) are assumed default-free.
                       Bonds EM uses US macro assumptions since they are USD-denominated hard currency bonds.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-blue-50 border-blue-200 mt-4">
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-blue-700">
+                      <strong>Inflation Linked:</strong> Defaults are regime-specific. In USD base mode, the model uses
+                      US TIPS assumptions; in EUR base mode, it uses EUR inflation-linked sovereign assumptions.
+                      Inputs include current real yield, duration, real term premium, inflation beta, index lag drag,
+                      and liquidity/technical adjustment.
                     </p>
                   </CardContent>
                 </Card>

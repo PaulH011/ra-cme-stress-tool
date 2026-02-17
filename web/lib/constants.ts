@@ -86,6 +86,26 @@ export const DEFAULT_INPUTS: AllInputs = {
       default_rate: 2.80,
       recovery_rate: 55.0,
     },
+    inflation_linked: {
+      usd: {
+        current_real_yield: 1.80,
+        duration: 6.4,
+        current_real_term_premium: 0.30,
+        fair_real_term_premium: 0.20,
+        inflation_beta: 1.00,
+        index_lag_drag: 0.10,
+        liquidity_technical: 0.05,
+      },
+      eur: {
+        current_real_yield: 0.75,
+        duration: 7.5,
+        current_real_term_premium: 0.15,
+        fair_real_term_premium: 0.10,
+        inflation_beta: 1.00,
+        index_lag_drag: 0.15,
+        liquidity_technical: 0.10,
+      },
+    },
   },
   equity: {
     us: {

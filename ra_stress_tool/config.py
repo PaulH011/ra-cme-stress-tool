@@ -32,6 +32,7 @@ class AssetClass(Enum):
     BONDS_GLOBAL = "bonds_global"
     BONDS_HY = "bonds_hy"
     BONDS_EM = "bonds_em"
+    INFLATION_LINKED = "inflation_linked"
     EQUITY_US = "equity_us"
     EQUITY_EUROPE = "equity_europe"
     EQUITY_JAPAN = "equity_japan"
@@ -256,6 +257,29 @@ DEFAULT_ASSET_DATA = {
         'recovery_rate': 0.55,                 # 55%
     },
 
+    AssetClass.INFLATION_LINKED: {
+        # Regime selected by base currency at runtime
+        # USD = US TIPS assumptions, EUR = Euro inflation-linked sovereign assumptions
+        'usd': {
+            'current_real_yield': 0.0180,          # 1.80%
+            'duration': 6.4,                       # Years
+            'current_real_term_premium': 0.0030,   # 0.30%
+            'fair_real_term_premium': 0.0020,      # 0.20%
+            'inflation_beta': 1.0,                 # Unitless
+            'index_lag_drag': 0.0010,              # 0.10%
+            'liquidity_technical': 0.0005,         # 0.05%
+        },
+        'eur': {
+            'current_real_yield': 0.0075,          # 0.75%
+            'duration': 7.5,                       # Years
+            'current_real_term_premium': 0.0015,   # 0.15%
+            'fair_real_term_premium': 0.0010,      # 0.10%
+            'inflation_beta': 1.0,                 # Unitless
+            'index_lag_drag': 0.0015,              # 0.15%
+            'liquidity_technical': 0.0010,         # 0.10%
+        },
+    },
+
     AssetClass.EQUITY_US: {
         # RA model defaults
         'dividend_yield': 0.0113,              # 1.13% (S&P 500 TTM)
@@ -395,6 +419,7 @@ ASSET_LOCAL_CURRENCY = {
     AssetClass.BONDS_GLOBAL: 'usd',     # USD-hedged developed bonds
     AssetClass.BONDS_HY: 'usd',         # US High Yield
     AssetClass.BONDS_EM: 'usd',         # USD hard currency (EM sovereign bonds issued in USD)
+    AssetClass.INFLATION_LINKED: 'base',# Uses base currency regime directly (USD TIPS or EUR ILBs)
     AssetClass.EQUITY_US: 'usd',
     AssetClass.EQUITY_EUROPE: 'eur',
     AssetClass.EQUITY_JAPAN: 'jpy',
@@ -420,6 +445,7 @@ EXPECTED_VOLATILITY = {
     AssetClass.BONDS_GLOBAL: 0.06,       # 6% - Global Gov Bonds
     AssetClass.BONDS_HY: 0.10,           # 10% - High Yield
     AssetClass.BONDS_EM: 0.12,           # 12% - EM Hard Currency
+    AssetClass.INFLATION_LINKED: 0.07,   # 7% - DM inflation-linked sovereign bonds
     AssetClass.EQUITY_US: 0.16,          # 16% - US Equities
     AssetClass.EQUITY_EUROPE: 0.18,      # 18% - Europe Equities
     AssetClass.EQUITY_JAPAN: 0.18,       # 18% - Japan Equities

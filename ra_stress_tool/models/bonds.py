@@ -554,3 +554,135 @@ class EMBondModel(BondModel):
 
         # Compute base forecast using EM T-Bill
         return super().compute_return(em_tbill_forecast, effective_inflation, forecast_horizon)
+
+
+class InflationLinkedBondModel(BondModel):
+    """
+    Inflation-linked sovereign bond model (USD TIPS / EUR inflation-linked).
+
+    Decomposition:
+    Real Return = Real Yield Carry + Real Roll + Real Valuation + Liquidity/Technical
+    Nominal Return = Real Return + (Inflation * Inflation Beta) - Index Lag Drag
+    """
+
+    def __init__(self, override_manager: OverrideManager):
+        super().__init__(override_manager, AssetClass.INFLATION_LINKED)
+
+    def compute_credit_loss(self, inputs: Dict[str, TrackedValue]) -> Dict[str, TrackedValue]:
+        """DM sovereign inflation-linked bonds are treated as default-free."""
+        return {
+            'credit_loss': TrackedValue(0.0, InputSource.DEFAULT),
+            'default_rate': TrackedValue(0.0, InputSource.DEFAULT),
+            'recovery_rate': TrackedValue(1.0, InputSource.DEFAULT),
+        }
+
+    def compute_return(
+        self,
+        inflation_forecast: float,
+        regime_inputs: Dict[str, TrackedValue],
+        forecast_horizon: int = 10
+    ) -> BondForecast:
+        """
+        Compute inflation-linked bond returns for selected currency regime.
+
+        Parameters
+        ----------
+        inflation_forecast : float
+            Expected inflation for the selected macro region.
+        regime_inputs : dict
+            Selected regime inputs (USD or EUR), each as TrackedValue.
+        forecast_horizon : int
+            Forecast horizon in years.
+        """
+        current_real_yield_tv = regime_inputs.get('current_real_yield', TrackedValue(0.01, InputSource.DEFAULT))
+        duration_tv = regime_inputs.get('duration', TrackedValue(7.0, InputSource.DEFAULT))
+        current_rtp_tv = regime_inputs.get('current_real_term_premium', TrackedValue(0.002, InputSource.DEFAULT))
+        fair_rtp_tv = regime_inputs.get('fair_real_term_premium', TrackedValue(0.002, InputSource.DEFAULT))
+        inflation_beta_tv = regime_inputs.get('inflation_beta', TrackedValue(1.0, InputSource.DEFAULT))
+        index_lag_drag_tv = regime_inputs.get('index_lag_drag', TrackedValue(0.001, InputSource.DEFAULT))
+        liquidity_technical_tv = regime_inputs.get('liquidity_technical', TrackedValue(0.0, InputSource.DEFAULT))
+
+        duration = duration_tv.value
+        current_rtp = current_rtp_tv.value
+        fair_rtp = fair_rtp_tv.value
+
+        # Real yield carry
+        real_carry = current_real_yield_tv.value
+
+        # Real roll and valuation effects on the real yield curve
+        roll_result = self.forecast_roll_return(
+            duration=duration,
+            term_premium=current_rtp,
+            duration_source=duration_tv.source
+        )
+        real_roll_return = roll_result['roll_return'].value
+
+        valuation_result = self.forecast_valuation_return(
+            current_term_premium=current_rtp,
+            fair_term_premium=fair_rtp,
+            duration=duration,
+            forecast_horizon=forecast_horizon,
+            duration_source=duration_tv.source
+        )
+        real_valuation_return = valuation_result['valuation_return'].value
+
+        # Inflation indexation mechanics
+        inflation_indexation = inflation_forecast * inflation_beta_tv.value
+
+        expected_return_real = real_carry + real_roll_return + real_valuation_return + liquidity_technical_tv.value
+        expected_return_nominal = expected_return_real + inflation_indexation - index_lag_drag_tv.value
+
+        components = {
+            'real': {
+                'current_real_yield': current_real_yield_tv.value,
+                'real_yield_carry': real_carry,
+                'real_roll_return': real_roll_return,
+                'real_valuation_return': real_valuation_return,
+                'liquidity_technical': liquidity_technical_tv.value,
+                'duration': duration,
+                'current_real_term_premium': current_rtp,
+                'fair_real_term_premium': fair_rtp,
+            },
+            'inflation': {
+                'inflation_forecast': inflation_forecast,
+                'inflation_beta': inflation_beta_tv.value,
+                'inflation_indexation': inflation_indexation,
+                'index_lag_drag': index_lag_drag_tv.value,
+            },
+            'roll': extract_values(roll_result),
+            'valuation': extract_values(valuation_result),
+            'credit': {'credit_loss': 0.0},
+        }
+
+        sources = {
+            'real.current_real_yield': current_real_yield_tv.source.value,
+            'real.real_yield_carry': 'computed',
+            'real.real_roll_return': 'computed',
+            'real.real_valuation_return': 'computed',
+            'real.liquidity_technical': liquidity_technical_tv.source.value,
+            'real.duration': duration_tv.source.value,
+            'real.current_real_term_premium': current_rtp_tv.source.value,
+            'real.fair_real_term_premium': fair_rtp_tv.source.value,
+            'inflation.inflation_forecast': 'computed',
+            'inflation.inflation_beta': inflation_beta_tv.source.value,
+            'inflation.inflation_indexation': 'computed',
+            'inflation.index_lag_drag': index_lag_drag_tv.source.value,
+            'credit.credit_loss': 'default',
+        }
+
+        for key, tv in roll_result.items():
+            sources[f"roll.{key}"] = tv.source.value
+        for key, tv in valuation_result.items():
+            sources[f"valuation.{key}"] = tv.source.value
+
+        return BondForecast(
+            expected_return_nominal=expected_return_nominal,
+            expected_return_real=expected_return_real,
+            yield_component=real_carry,
+            roll_return=real_roll_return,
+            valuation_return=real_valuation_return,
+            credit_loss=0.0,
+            inflation=inflation_forecast,
+            components=components,
+            sources=sources,
+        )

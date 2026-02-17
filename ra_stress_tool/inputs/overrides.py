@@ -199,7 +199,13 @@ class OverrideManager:
         for key, default_value in defaults.items():
             override_value, found = self._get_override_value(asset_key, key)
             if found:
-                result[key] = TrackedValue(override_value, InputSource.OVERRIDE)
+                if isinstance(default_value, dict) and isinstance(override_value, dict):
+                    # Merge nested overrides with nested defaults (used by regime-based assets)
+                    merged = deepcopy(default_value)
+                    self._merge_dict(merged, override_value)
+                    result[key] = TrackedValue(merged, InputSource.OVERRIDE)
+                else:
+                    result[key] = TrackedValue(override_value, InputSource.OVERRIDE)
             else:
                 result[key] = TrackedValue(default_value, InputSource.DEFAULT)
 

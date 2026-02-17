@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from .inputs.overrides import OverrideManager
 from .models.macro import MacroModel, compute_global_rgdp_growth
-from .models.bonds import GovernmentBondModel, HighYieldBondModel, EMBondModel
+from .models.bonds import GovernmentBondModel, HighYieldBondModel, EMBondModel, InflationLinkedBondModel
 from .models.equities import EquityModel, EquityModelGK, EquityRegion
 from .models.alternatives import HedgeFundModel
 from .models.currency import FXModel
@@ -33,6 +33,7 @@ class CMEEngine:
         AssetClass.BONDS_GLOBAL: "Bonds Global (Gov)",
         AssetClass.BONDS_HY: "Bonds High Yield",
         AssetClass.BONDS_EM: "Bonds EM (Hard Currency)",
+        AssetClass.INFLATION_LINKED: "Inflation Linked",
         AssetClass.EQUITY_US: "Equity US",
         AssetClass.EQUITY_EUROPE: "Equity Europe",
         AssetClass.EQUITY_JAPAN: "Equity Japan",
@@ -69,6 +70,7 @@ class CMEEngine:
         self.gov_bond_model = GovernmentBondModel(self.override_manager)
         self.hy_bond_model = HighYieldBondModel(self.override_manager)
         self.em_bond_model = EMBondModel(self.override_manager)
+        self.inflation_linked_model = InflationLinkedBondModel(self.override_manager)
         self.hf_model = HedgeFundModel(self.override_manager)
         self.fx_model = FXModel(self.override_manager)
 
@@ -600,6 +602,82 @@ class CMEEngine:
             macro_dependencies=macro_deps,
         )
 
+    def _get_inflation_linked_regime_inputs(self, regime: str) -> Dict[str, Any]:
+        """Build regime inputs with per-field source tracking."""
+        from .inputs.defaults import DefaultInputs
+        from .inputs.overrides import TrackedValue, InputSource
+
+        defaults = DefaultInputs().get_asset_inputs(AssetClass.INFLATION_LINKED)
+        regime_defaults = defaults.get(regime, {})
+        tracked = {}
+
+        for key, default_val in regime_defaults.items():
+            override_path = f"inflation_linked.{regime}.{key}"
+            if self.override_manager.has_override(override_path):
+                # get_value returns override if present, otherwise supplied default
+                tracked[key] = self.override_manager.get_value(
+                    category='inflation_linked',
+                    subcategory=regime,
+                    param=key,
+                    default=default_val
+                )
+            else:
+                tracked[key] = TrackedValue(default_val, InputSource.DEFAULT)
+
+        return tracked
+
+    def compute_inflation_linked_return(self) -> AssetClassResult:
+        """
+        Compute expected return for inflation-linked bonds.
+
+        Uses USD TIPS assumptions for USD base currency and EUR inflation-linked
+        sovereign assumptions for EUR base currency.
+        """
+        macro = self.compute_macro_forecasts()
+        macro_sources = self._get_macro_sources()
+
+        if self.base_currency == BaseCurrency.EUR:
+            regime = 'eur'
+            macro_region = 'eurozone'
+        else:
+            regime = 'usd'
+            macro_region = 'us'
+
+        region_macro = macro[macro_region]
+        regime_inputs = self._get_inflation_linked_regime_inputs(regime)
+
+        forecast = self.inflation_linked_model.compute_return(
+            inflation_forecast=region_macro['inflation'],
+            regime_inputs=regime_inputs,
+        )
+
+        macro_deps = self._build_macro_dependencies(
+            asset_type='bond',
+            macro_region=macro_region,
+            macro=macro,
+            macro_sources=macro_sources,
+            include_tbill=False,
+            include_inflation=True,
+            include_gdp_cap=False,
+        )
+
+        return AssetClassResult(
+            asset_class=self.ASSET_NAMES[AssetClass.INFLATION_LINKED],
+            expected_return_nominal=forecast.expected_return_nominal,
+            expected_return_real=forecast.expected_return_real,
+            components={
+                'real_yield_carry': forecast.components['real']['real_yield_carry'],
+                'real_roll_return': forecast.components['real']['real_roll_return'],
+                'real_valuation_return': forecast.components['real']['real_valuation_return'],
+                'inflation_indexation': forecast.components['inflation']['inflation_indexation'],
+                'index_lag_drag': -abs(forecast.components['inflation']['index_lag_drag']),
+                'liquidity_technical': forecast.components['real']['liquidity_technical'],
+                'credit_loss': 0.0,
+            },
+            inputs_used=self._extract_bond_inputs(forecast),
+            macro_dependencies=macro_deps,
+        )
+
     # Map equity region to macro region
     EQUITY_TO_MACRO_REGION = {
         EquityRegion.US: 'us',
@@ -836,6 +914,11 @@ class CMEEngine:
         bonds_em = self.compute_bonds_em_return()
         results[AssetClass.BONDS_EM.value] = self._apply_fx_to_result(
             bonds_em, AssetClass.BONDS_EM
+        )
+
+        inflation_linked = self.compute_inflation_linked_return()
+        results[AssetClass.INFLATION_LINKED.value] = self._apply_fx_to_result(
+            inflation_linked, AssetClass.INFLATION_LINKED
         )
 
         # Equities - apply FX adjustments

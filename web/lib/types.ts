@@ -5,7 +5,7 @@
 // Region types
 export type MacroRegion = 'us' | 'eurozone' | 'japan' | 'em';
 export type EquityRegion = 'us' | 'europe' | 'japan' | 'em';
-export type BondType = 'global' | 'hy' | 'em';
+export type BondType = 'global' | 'hy' | 'em' | 'inflation_linked';
 
 // Asset class identifiers
 export type AssetClass =
@@ -13,6 +13,7 @@ export type AssetClass =
   | 'bonds_global'
   | 'bonds_hy'
   | 'bonds_em'
+  | 'inflation_linked'
   | 'equity_us'
   | 'equity_europe'
   | 'equity_japan'
@@ -46,6 +47,21 @@ export interface BondInputs {
   fair_credit_spread?: number;
   default_rate?: number;
   recovery_rate?: number;
+}
+
+export interface InflationLinkedRegimeInputs {
+  current_real_yield: number;
+  duration: number;
+  current_real_term_premium: number;
+  fair_real_term_premium: number;
+  inflation_beta: number;
+  index_lag_drag: number;
+  liquidity_technical: number;
+}
+
+export interface InflationLinkedInputs {
+  usd: InflationLinkedRegimeInputs;
+  eur: InflationLinkedRegimeInputs;
 }
 
 // Equity input structure (RA model)
@@ -86,7 +102,12 @@ export interface AbsoluteReturnInputs {
 // All inputs structure
 export interface AllInputs {
   macro: Record<MacroRegion, MacroInputs>;
-  bonds: Record<BondType, BondInputs>;
+  bonds: {
+    global: BondInputs;
+    hy: BondInputs;
+    em: BondInputs;
+    inflation_linked: InflationLinkedInputs;
+  };
   equity: Record<EquityRegion, EquityInputs>;
   absolute_return: AbsoluteReturnInputs;
 }
@@ -105,7 +126,7 @@ export interface AssetResult {
   expected_return_nominal: number;
   expected_return_real: number;
   components: Record<string, number>;
-  inputs_used: Record<string, { value: any; source: string }>;
+  inputs_used: Record<string, { value: unknown; source: string }>;
   macro_dependencies: Record<string, MacroDependency>;
 }
 
@@ -152,6 +173,10 @@ export interface Overrides {
   bonds_global?: Partial<BondInputs>;
   bonds_hy?: Partial<BondInputs>;
   bonds_em?: Partial<BondInputs>;
+  inflation_linked?: {
+    usd?: Partial<InflationLinkedRegimeInputs>;
+    eur?: Partial<InflationLinkedRegimeInputs>;
+  };
   equity_us?: Partial<EquityInputs> | Partial<EquityInputsGK>;
   equity_europe?: Partial<EquityInputs> | Partial<EquityInputsGK>;
   equity_japan?: Partial<EquityInputs> | Partial<EquityInputsGK>;
@@ -172,6 +197,7 @@ export const ASSET_DISPLAY_INFO: AssetDisplayInfo[] = [
   { key: 'bonds_global', name: 'Bonds Global', icon: '🏛️', volatility: 0.06 },
   { key: 'bonds_hy', name: 'Bonds HY', icon: '📊', volatility: 0.10 },
   { key: 'bonds_em', name: 'Bonds EM', icon: '🌍', volatility: 0.12 },
+  { key: 'inflation_linked', name: 'Inflation Linked', icon: '📈', volatility: 0.07 },
   { key: 'equity_us', name: 'Equity US', icon: '🇺🇸', volatility: 0.16 },
   { key: 'equity_europe', name: 'Equity Europe', icon: '🇪🇺', volatility: 0.18 },
   { key: 'equity_japan', name: 'Equity Japan', icon: '🇯🇵', volatility: 0.18 },
