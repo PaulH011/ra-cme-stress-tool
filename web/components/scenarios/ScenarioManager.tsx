@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useInputStore } from '@/stores/inputStore';
 import { useAuthStore } from '@/stores/authStore';
+import type { Overrides, MacroRegion, MacroInputs, InflationLinkedRegimeInputs } from '@/lib/types';
 import {
   getScenarios,
   saveScenario,
@@ -38,6 +39,110 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Save, FolderOpen, Trash2, Cloud, HardDrive, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const ABSOLUTE_RETURN_RAW_KEYS = new Set([
+  'beta_market',
+  'beta_size',
+  'beta_value',
+  'beta_profitability',
+  'beta_investment',
+  'beta_momentum',
+]);
+
+const INFLATION_LINKED_RAW_KEYS = new Set(['duration', 'inflation_beta']);
+const BOND_RAW_KEYS = new Set(['duration']);
+const MACRO_RAW_KEYS = new Set(['my_ratio']);
+const GK_RAW_KEYS = new Set(['current_pe', 'target_pe']);
+
+function convertNumberForUi(
+  key: string,
+  value: number,
+  rawKeys: Set<string>
+): number {
+  return rawKeys.has(key) ? value : value * 100;
+}
+
+function convertSavedOverridesToUiUnits(overrides: Overrides): Overrides {
+  const converted: Overrides = {};
+
+  if (overrides.macro) {
+    converted.macro = {};
+    for (const [region, values] of Object.entries(overrides.macro)) {
+      if (!values) continue;
+      const out: Record<string, number> = {};
+      for (const [key, value] of Object.entries(values)) {
+        if (typeof value !== 'number') continue;
+        out[key] = convertNumberForUi(key, value, MACRO_RAW_KEYS);
+      }
+      converted.macro[region as MacroRegion] = out as Partial<MacroInputs>;
+    }
+  }
+
+  const convertBondGroup = (group?: Record<string, unknown>) => {
+    if (!group) return undefined;
+    const out: Record<string, number> = {};
+    for (const [key, value] of Object.entries(group)) {
+      if (typeof value !== 'number') continue;
+      out[key] = convertNumberForUi(key, value, BOND_RAW_KEYS);
+    }
+    return out;
+  };
+
+  converted.bonds_global = convertBondGroup(overrides.bonds_global) as Overrides['bonds_global'];
+  converted.bonds_hy = convertBondGroup(overrides.bonds_hy) as Overrides['bonds_hy'];
+  converted.bonds_em = convertBondGroup(overrides.bonds_em) as Overrides['bonds_em'];
+
+  if (overrides.inflation_linked) {
+    converted.inflation_linked = {};
+    for (const regime of ['usd', 'eur'] as const) {
+      const regimeValues = overrides.inflation_linked[regime];
+      if (!regimeValues) continue;
+      const out: Record<string, number> = {};
+      for (const [key, value] of Object.entries(regimeValues)) {
+        if (typeof value !== 'number') continue;
+        out[key] = convertNumberForUi(key, value, INFLATION_LINKED_RAW_KEYS);
+      }
+      converted.inflation_linked[regime] = out as Partial<InflationLinkedRegimeInputs>;
+    }
+  }
+
+  const convertEquityGroup = (group?: Record<string, unknown>) => {
+    if (!group) return undefined;
+    const out: Record<string, number> = {};
+    const isGk = Object.keys(group).some((k) => k === 'current_pe' || k === 'target_pe');
+    for (const [key, value] of Object.entries(group)) {
+      if (typeof value !== 'number') continue;
+      if (isGk) {
+        out[key] = convertNumberForUi(key, value, GK_RAW_KEYS);
+      } else {
+        out[key] = value * 100;
+      }
+    }
+    return out;
+  };
+
+  converted.equity_us = convertEquityGroup(overrides.equity_us as Record<string, unknown>) as Overrides['equity_us'];
+  converted.equity_europe = convertEquityGroup(overrides.equity_europe as Record<string, unknown>) as Overrides['equity_europe'];
+  converted.equity_japan = convertEquityGroup(overrides.equity_japan as Record<string, unknown>) as Overrides['equity_japan'];
+  converted.equity_em = convertEquityGroup(overrides.equity_em as Record<string, unknown>) as Overrides['equity_em'];
+
+  if (overrides.absolute_return) {
+    const out: Record<string, number> = {};
+    for (const [key, value] of Object.entries(overrides.absolute_return)) {
+      if (typeof value !== 'number') continue;
+      if (key === 'trading_alpha') {
+        out[key] = value * 100;
+      } else if (ABSOLUTE_RETURN_RAW_KEYS.has(key)) {
+        out[key] = value;
+      } else {
+        out[key] = value;
+      }
+    }
+    converted.absolute_return = out as Overrides['absolute_return'];
+  }
+
+  return converted;
+}
 
 // Predefined scenario templates
 const SCENARIO_TEMPLATES = {
@@ -176,8 +281,9 @@ export function ScenarioManager() {
     if (normalizedBase === 'usd' || normalizedBase === 'eur') {
       setBaseCurrency(normalizedBase);
     }
+    const overridesForUi = convertSavedOverridesToUiUnits(scenario.overrides as Overrides);
     resetToDefaults();
-    loadScenario(scenario.overrides);
+    loadScenario(overridesForUi);
     toast.success(`Loaded "${scenario.name}"`);
   };
 
