@@ -11,6 +11,7 @@ import {
   type ShareRecipient,
   type ShareScenarioResult,
 } from './supabase';
+import type { Overrides } from './types';
 
 const LOCAL_STORAGE_KEY = 'react-cma-scenarios';
 
@@ -18,7 +19,7 @@ export interface SavedScenario {
   id: string;
   name: string;
   description?: string;
-  overrides: Record<string, unknown>;
+  overrides: Overrides;
   base_currency: string;
   is_shared_copy?: boolean;
   shared_from_scenario_id?: string | null;

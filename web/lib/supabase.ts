@@ -6,6 +6,7 @@
  */
 
 import { createBrowserClient } from '@supabase/ssr';
+import type { Overrides } from './types';
 
 // These should be set in .env.local
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -31,7 +32,7 @@ export interface ReactScenario {
   user_id: string;
   name: string;
   description?: string;
-  overrides: Record<string, unknown>;
+  overrides: Overrides;
   base_currency: string;
   is_shared_copy?: boolean;
   shared_from_scenario_id?: string | null;
